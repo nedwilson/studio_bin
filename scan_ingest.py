@@ -10,6 +10,12 @@ import shutil
 import glob
 import cdl_convert
 import pprint
+from timecode import TimeCode
+
+import OpenEXR
+import Imath
+
+import db_access as DB
 
 g_ih_show_code = None
 g_ih_show_root = None
@@ -213,13 +219,17 @@ if len(g_skip_list) > 0:
     
 
 # create template Nuke scripts if they don't exist
-# if they do exist, add the plate to them
+# add shots, sequences, and plates into the database if they don't already exist
+
+ihdb = DB.DBAccessGlobals.get_db_access()
+b_create_nuke = False
 
 import nuke
 
 for shot_dir in g_dict_img_seq.keys():
     shot = None
     seq = None
+    b_create_nuke = False
     matchobject = re.search(g_shot_regexp, shot_dir)
     # make sure this file matches the shot pattern
     if not matchobject:
@@ -236,19 +246,8 @@ for shot_dir in g_dict_img_seq.keys():
         print "INFO: Nuke script already exists at %s. Skipping."%full_nuke_script_path
     else:
         print "INFO: Creating new Nuke script at %s!"%full_nuke_script_path
-    
+        b_create_nuke = False
 
-    subbed_seq_dir = g_shot_dir.replace('/', os.path.sep).replace("SHOW_ROOT", g_ih_show_root).replace("SEQUENCE", seq).replace("SHOT", '')
-    subbed_shot_dir = g_shot_dir.replace('/', os.path.sep).replace("SHOW_ROOT", g_ih_show_root).replace("SEQUENCE", seq).replace("SHOT", shot)
-    
-    comp_render_dir_dict = { 'pathsep' : os.path.sep, 'compdir' : nuke_script_starter }
-    comp_write_path = os.path.join(shot_dir, g_shot_comp_render_dir.format(**comp_render_dir_dict), "%s.%s.%s"%(nuke_script_starter, g_write_frame_format, g_write_extension))
-    nuke.scriptOpen(g_shot_template)
-    bd_node = nuke.toNode("BackdropNode1")
-    bd_node_w = nuke.toNode("BackdropNode2")
-    main_read = nuke.toNode("Read1")
-    main_write = nuke.toNode("Write_exr")
-    main_cdl = nuke.toNode("VIEWER_INPUT.OCIOCDLTransform1")
     plates = g_dict_img_seq[shot_dir].keys()
     # handle the main plate
     mainplate_dict = g_dict_img_seq[shot_dir][plates[0]]
@@ -256,76 +255,201 @@ for shot_dir in g_dict_img_seq.keys():
     mainplate_frames = sorted(mainplate_dict['frames'])
     mainplate_first = int(mainplate_frames[0])
     mainplate_last = int(mainplate_frames[-1])
+
+    subbed_seq_dir = g_shot_dir.replace('/', os.path.sep).replace("SHOW_ROOT", g_ih_show_root).replace("SEQUENCE", seq).replace("SHOT", '')
+    subbed_shot_dir = g_shot_dir.replace('/', os.path.sep).replace("SHOW_ROOT", g_ih_show_root).replace("SEQUENCE", seq).replace("SHOT", shot)
     
-    # set the values in the template
-    bd_node.knob('label').setValue("<center>%s"%os.path.basename(plates[0]))
-    main_read.knob('file').setValue("%s.%s.%s"%(plates[0], g_write_frame_format, mainplate_ext))
-    main_read.knob('first').setValue(mainplate_first)
-    main_read.knob('last').setValue(mainplate_last)
-    main_read.knob('origfirst').setValue(mainplate_first)
-    main_read.knob('origlast').setValue(mainplate_last)
-    nuke.root().knob('first_frame').setValue(mainplate_first)
-    nuke.root().knob('last_frame').setValue(mainplate_last)
-    nuke.root().knob('txt_ih_show').setValue(g_ih_show_code)
-    nuke.root().knob('txt_ih_show_path').setValue(g_ih_show_root)
-    nuke.root().knob('txt_ih_seq').setValue(seq)
-    nuke.root().knob('txt_ih_seq_path').setValue(subbed_seq_dir)
-    nuke.root().knob('txt_ih_shot').setValue(shot)
-    nuke.root().knob('txt_ih_shot_path').setValue(subbed_shot_dir)
-    main_cdl.knob('file').setValue(os.path.join(shot_dir, "data", "cdl", "%s.cc"%shot))
-    main_write.knob('file').setValue(comp_write_path)
-    bd_node_w.knob('label').setValue("<center>%s\ncomp output"%shot)
+    # retrieve objects for sequence/shot from the database. 
+    # create them if they do not exist.
+    b_newshot = False
+    
+    dbseq = ihdb.fetch_sequence(seq)
+    if not dbseq:
+        print "INFO: Creating new sequence %s at path %s."%(seq, subbed_seq_dir)
+        dbseq = DB.Sequence(seq, subbed_seq_dir, -1)
+        ihdb.create_sequence(dbseq)
+        
+    print "INFO: Got sequence %s object from database with ID of %s."%(dbseq.g_seq_code, dbseq.g_dbid)
+
+    dbshot = ihdb.fetch_shot(shot)
+    if not dbshot:
+        print "INFO: Creating new shot %s at path %s."%(shot, subbed_shot_dir)
+        dbshot = DB.Shot(shot, subbed_shot_dir, -1, dbseq, None, mainplate_first, mainplate_first + 8, mainplate_last - 8, mainplate_last, mainplate_last - mainplate_first - 15)
+        ihdb.create_shot(dbshot)
+        # useful for creating thumbnails based on a plate, not on the latest comp
+        b_newshot = True
+        
+    print "INFO: Got shot %s object from database with ID of %s."%(dbshot.g_shot_code, dbshot.g_dbid)
+
+    # retrive object from database for main plate
+    mainplate_base = os.path.basename(plates[0])
+    dbplate = ihdb.fetch_plate(mainplate_base, dbshot)
+    
+    if not dbplate:
+        print "INFO: Creating new plate %s for shot %s."%(mainplate_base, shot)
+        plate_name = os.path.basename(plates[0])
+        start_frame = mainplate_first
+        end_frame = mainplate_last
+        duration = (end_frame - start_frame + 1)
+        thumb_frame = start_frame + (duration/2)
+        plate_path = "%s.%s.%s"%(plates[0], g_write_frame_format, mainplate_ext)
+        start_file_path = "%s.%s.%s"%(plates[0], mainplate_first, mainplate_ext)
+        end_file_path = "%s.%s.%s"%(plates[0], mainplate_last, mainplate_ext)
+
+        start_file = OpenEXR.InputFile(start_file_path)
+
+        try:
+            start_tc_obj = start_file.header()['timeCode']
+            start_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(start_tc_obj.hours, start_tc_obj.minutes, start_tc_obj.seconds, start_tc_obj.frame)).frame_number() * 1000) / 24)
+            clip_name = start_file.header()['reelName']
+            scene = start_file.header()['Scene']
+            take = start_file.header()['Take']
+        except KeyError:
+            e = sys.exc_info()
+            print e[0]
+            print e[1]
+            print e[2]
+
+        end_file = OpenEXR.InputFile(end_file_path)
+
+        try:
+            end_tc_obj = end_file.header()['timeCode']
+            end_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(end_tc_obj.hours, end_tc_obj.minutes, end_tc_obj.seconds, end_tc_obj.frame)).frame_number() * 1000) / 24)
+        except KeyError:
+            e = sys.exc_info()
+            print e[0]
+            print e[1]
+            print e[2]
+
+        dbplate = DB.Plate(plate_name, start_frame, end_frame, duration, plate_path, start_timecode, clip_name, scene, take, end_timecode, dbshot, -1)
+        ihdb.create_plate(dbplate)
+    
+    if b_create_nuke:
+        comp_render_dir_dict = { 'pathsep' : os.path.sep, 'compdir' : nuke_script_starter }
+        comp_write_path = os.path.join(shot_dir, g_shot_comp_render_dir.format(**comp_render_dir_dict), "%s.%s.%s"%(nuke_script_starter, g_write_frame_format, g_write_extension))
+        nuke.scriptOpen(g_shot_template)
+        bd_node = nuke.toNode("BackdropNode1")
+        bd_node_w = nuke.toNode("BackdropNode2")
+        main_read = nuke.toNode("Read1")
+        main_write = nuke.toNode("Write_exr")
+        main_cdl = nuke.toNode("VIEWER_INPUT.OCIOCDLTransform1")
+    
+        # set the values in the template
+        bd_node.knob('label').setValue("<center>%s"%os.path.basename(plates[0]))
+        main_read.knob('file').setValue("%s.%s.%s"%(plates[0], g_write_frame_format, mainplate_ext))
+        main_read.knob('first').setValue(mainplate_first)
+        main_read.knob('last').setValue(mainplate_last)
+        main_read.knob('origfirst').setValue(mainplate_first)
+        main_read.knob('origlast').setValue(mainplate_last)
+        nuke.root().knob('first_frame').setValue(mainplate_first)
+        nuke.root().knob('last_frame').setValue(mainplate_last)
+        nuke.root().knob('txt_ih_show').setValue(g_ih_show_code)
+        nuke.root().knob('txt_ih_show_path').setValue(g_ih_show_root)
+        nuke.root().knob('txt_ih_seq').setValue(seq)
+        nuke.root().knob('txt_ih_seq_path').setValue(subbed_seq_dir)
+        nuke.root().knob('txt_ih_shot').setValue(shot)
+        nuke.root().knob('txt_ih_shot_path').setValue(subbed_shot_dir)
+        main_cdl.knob('file').setValue(os.path.join(shot_dir, "data", "cdl", "%s.cc"%shot))
+        main_write.knob('file').setValue(comp_write_path)
+        bd_node_w.knob('label').setValue("<center>%s\ncomp output"%shot)
     
     # bring in any additional plates
     if len(plates) > 1:
-        last_read = main_read
-        last_read_xpos = 80
-        last_bd_xpos = -69
-        last_bd = bd_node
+        if b_create_nuke:
+            last_read = main_read
+            last_read_xpos = 80
+            last_bd_xpos = -69
+            last_bd = bd_node
         for addlplate in plates[1:]:
             newplate_dict = g_dict_img_seq[shot_dir][addlplate]
             newplate_ext = newplate_dict['ext']
             newplate_frames = sorted(newplate_dict['frames'])
             newplate_first = int(newplate_frames[0])
             newplate_last = int(newplate_frames[-1])
-            # copy/paste read and backdrop
-            new_read = nuke.createNode("Read")
-            new_bd = nuke.createNode("BackdropNode")
-            
-            new_bd.knob('note_font_size').setValue(42)
-            new_bd.knob('bdwidth').setValue(373)
-            new_bd.knob('bdheight').setValue(326)
-            
-            
-            new_bd_xpos = last_bd_xpos + 450
-            new_read_xpos = last_read_xpos + 450
-            
-            new_bd.knob('xpos').setValue(new_bd_xpos)
-            new_bd.knob('ypos').setValue(-1025)
-            new_read.knob('xpos').setValue(new_read_xpos)
-            new_read.knob('ypos').setValue(-907)
 
-            newplate_dict = g_dict_img_seq[shot_dir][addlplate]
-            newplate_ext = newplate_dict['ext']
-            newplate_frames = sorted(newplate_dict['frames'])
-            newplate_first = int(newplate_frames[0])
-            newplate_last = int(newplate_frames[-1])
+            # fetch or create the plate in shotgun
+            addlplate_base = os.path.basename(addlplate)
+            dbplate = ihdb.fetch_plate(addlplate_base, dbshot)
+    
+            if not dbplate:
+                print "INFO: Creating new plate %s for shot %s."%(addlplate_base, shot)
+                plate_name = os.path.basename(addlplate)
+                start_frame = newplate_first
+                end_frame = newplate_last
+                duration = (end_frame - start_frame + 1)
+                thumb_frame = start_frame + (duration/2)
+                plate_path = "%s.%s.%s"%(addlplate, g_write_frame_format, newplate_ext)
+                start_file_path = "%s.%s.%s"%(addlplate, newplate_first, newplate_ext)
+                end_file_path = "%s.%s.%s"%(addlplate, newplate_last, newplate_ext)
+
+                start_file = OpenEXR.InputFile(start_file_path)
+
+                try:
+                    start_tc_obj = start_file.header()['timeCode']
+                    start_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(start_tc_obj.hours, start_tc_obj.minutes, start_tc_obj.seconds, start_tc_obj.frame)).frame_number() * 1000) / 24)
+                    clip_name = start_file.header()['reelName']
+                    scene = start_file.header()['Scene']
+                    take = start_file.header()['Take']
+                except KeyError:
+                    e = sys.exc_info()
+                    print e[0]
+                    print e[1]
+                    print e[2]
+
+                end_file = OpenEXR.InputFile(end_file_path)
+
+                try:
+                    end_tc_obj = end_file.header()['timeCode']
+                    end_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(end_tc_obj.hours, end_tc_obj.minutes, end_tc_obj.seconds, end_tc_obj.frame)).frame_number() * 1000) / 24)
+                except KeyError:
+                    e = sys.exc_info()
+                    print e[0]
+                    print e[1]
+                    print e[2]
+
+                dbplate = DB.Plate(plate_name, start_frame, end_frame, duration, plate_path, start_timecode, clip_name, scene, take, end_timecode, dbshot, -1)
+                ihdb.create_plate(dbplate)
+                        
+            if b_create_nuke:
+                # copy/paste read and backdrop
+                new_read = nuke.createNode("Read")
+                new_bd = nuke.createNode("BackdropNode")
             
-            new_bd.knob('label').setValue("<center>%s"%os.path.basename(addlplate))
-            new_read.knob('file').setValue("%s.%s.%s"%(addlplate, g_write_frame_format, newplate_ext))
-            new_read.knob('first').setValue(newplate_first)
-            new_read.knob('last').setValue(newplate_last)
-            new_read.knob('origfirst').setValue(newplate_first)
-            new_read.knob('origlast').setValue(newplate_last)
+                new_bd.knob('note_font_size').setValue(42)
+                new_bd.knob('bdwidth').setValue(373)
+                new_bd.knob('bdheight').setValue(326)
             
-            last_read = new_read
-            last_read_xpos = new_read_xpos
-            last_bd = new_bd
-            last_bd_xpos = new_bd_xpos
             
+                new_bd_xpos = last_bd_xpos + 450
+                new_read_xpos = last_read_xpos + 450
+            
+                new_bd.knob('xpos').setValue(new_bd_xpos)
+                new_bd.knob('ypos').setValue(-1025)
+                new_read.knob('xpos').setValue(new_read_xpos)
+                new_read.knob('ypos').setValue(-907)
+
+                newplate_dict = g_dict_img_seq[shot_dir][addlplate]
+                newplate_ext = newplate_dict['ext']
+                newplate_frames = sorted(newplate_dict['frames'])
+                newplate_first = int(newplate_frames[0])
+                newplate_last = int(newplate_frames[-1])
+            
+                new_bd.knob('label').setValue("<center>%s"%os.path.basename(addlplate))
+                new_read.knob('file').setValue("%s.%s.%s"%(addlplate, g_write_frame_format, newplate_ext))
+                new_read.knob('first').setValue(newplate_first)
+                new_read.knob('last').setValue(newplate_last)
+                new_read.knob('origfirst').setValue(newplate_first)
+                new_read.knob('origlast').setValue(newplate_last)
+            
+                last_read = new_read
+                last_read_xpos = new_read_xpos
+                last_bd = new_bd
+                last_bd_xpos = new_bd_xpos
+    
     # that should do it!
-    nuke.scriptSaveAs(full_nuke_script_path)
-    print "INFO: Successfully wrote out Nuke script at %s!"%full_nuke_script_path
+    if b_create_nuke:
+        nuke.scriptSaveAs(full_nuke_script_path)
+        print "INFO: Successfully wrote out Nuke script at %s!"%full_nuke_script_path
             
             
             
