@@ -2,14 +2,18 @@
 
 # Generic Scan ingest, version 0.1a
 
+import sys
+
+SYSARGV = sys.argv
+
 import ConfigParser
 import os
-import sys
 import re
 import shutil
 import glob
 import cdl_convert
 import pprint
+import utilities
 from timecode import TimeCode
 
 import OpenEXR
@@ -29,6 +33,7 @@ g_imgseq_regexp = None
 g_shot_scripts_dir = None
 g_shot_script_start = None
 g_shot_template = None
+g_shot_thumb_dir = None
 
 
 def usage():
@@ -55,6 +60,7 @@ try:
     g_write_frame_format = config.get(g_ih_show_code, 'write_frame_format')
     g_write_fps = config.get(g_ih_show_code, 'write_fps')
     g_shot_template = config.get('shot_template', sys.platform)
+    g_shot_thumb_dir = config.get('thumbnails', 'shot_thumb_dir')
     print "Successfully loaded show-specific config file for %s."%g_ih_show_code
 except KeyError:
     pass
@@ -188,21 +194,21 @@ def handle_file_copy(m_srcpath):
             os.link(m_srcpath, dest_file)
             
 
-if len(sys.argv) != 2:
+if len(SYSARGV) != 2:
     print("Error: Please provide a valid path to a directory as the first and only command line argument.")
     usage()
     exit()
     
-if not os.path.exists(sys.argv[1]):
+if not os.path.exists(SYSARGV[1]):
     print("Error: Path provided on the command line does not exist.")
     usage()
     exit()
-elif not os.path.isdir(sys.argv[1]):
+elif not os.path.isdir(SYSARGV[1]):
     print("Error: Path provided on the command line is not a directory.")
     usage()
     exit()
 else:
-    g_path = sys.argv[1]
+    g_path = SYSARGV[1]
     print "Located source folder %s."%g_path
     
 # traverse the file structure
@@ -285,6 +291,13 @@ for shot_dir in g_dict_img_seq.keys():
     mainplate_base = os.path.basename(plates[0])
     dbplate = ihdb.fetch_plate(mainplate_base, dbshot)
     
+    shot_thumb_dir = os.path.join(subbed_shot_dir, g_shot_thumb_dir.format(pathsep=os.path.sep))
+    b_new_shot_thumb = False
+    existing_thumb_list = glob.glob(os.path.join(shot_thumb_dir, "%s_comp_v*.png"%shot))
+    if len(existing_thumb_list) == 0:
+        print "INFO: No comp version thumbnails exist for shot %s in folder %s."%(shot, shot_thumb_dir)
+        b_new_shot_thumb = True
+    
     if not dbplate:
         print "INFO: Creating new plate %s for shot %s."%(mainplate_base, shot)
         plate_name = os.path.basename(plates[0])
@@ -295,6 +308,7 @@ for shot_dir in g_dict_img_seq.keys():
         plate_path = "%s.%s.%s"%(plates[0], g_write_frame_format, mainplate_ext)
         start_file_path = "%s.%s.%s"%(plates[0], mainplate_first, mainplate_ext)
         end_file_path = "%s.%s.%s"%(plates[0], mainplate_last, mainplate_ext)
+        thumb_frame_path = "%s.%s.%s"%(plates[0], thumb_frame, mainplate_ext)
 
         start_file = OpenEXR.InputFile(start_file_path)
 
@@ -323,7 +337,19 @@ for shot_dir in g_dict_img_seq.keys():
 
         dbplate = DB.Plate(plate_name, start_frame, end_frame, duration, plate_path, start_timecode, clip_name, scene, take, end_timecode, dbshot, -1)
         ihdb.create_plate(dbplate)
-    
+        
+        # upload a thumbnail for the plate_name
+        # first, create a .PNG from the source...
+        generated_thumb_path = utilities.create_thumbnail(thumb_frame_path)
+        ihdb.upload_thumbnail('Plate', dbplate, generated_thumb_path)
+        print "INFO: Uploaded thumbnail %s to DB plate object %s."%(generated_thumb_path, dbplate.g_plate_name)
+        # upload a thumbnail for the plate to the shot, in the event that this is a new shot
+        if b_new_shot_thumb:
+            ihdb.upload_thumbnail('Shot', dbshot, generated_thumb_path)
+            print "INFO: Uploaded thumbnail %s to DB shot object %s."%(generated_thumb_path, dbshot.g_shot_code)
+
+    print "INFO: Got plate %s object from database with ID of %s."%(dbplate.g_plate_name, dbplate.g_dbid)
+
     if b_create_nuke:
         comp_render_dir_dict = { 'pathsep' : os.path.sep, 'compdir' : nuke_script_starter }
         comp_write_path = os.path.join(shot_dir, g_shot_comp_render_dir.format(**comp_render_dir_dict), "%s.%s.%s"%(nuke_script_starter, g_write_frame_format, g_write_extension))
@@ -381,6 +407,7 @@ for shot_dir in g_dict_img_seq.keys():
                 plate_path = "%s.%s.%s"%(addlplate, g_write_frame_format, newplate_ext)
                 start_file_path = "%s.%s.%s"%(addlplate, newplate_first, newplate_ext)
                 end_file_path = "%s.%s.%s"%(addlplate, newplate_last, newplate_ext)
+                thumb_frame_path = "%s.%s.%s"%(addlplate, thumb_frame, newplate_ext)
 
                 start_file = OpenEXR.InputFile(start_file_path)
 
@@ -409,7 +436,14 @@ for shot_dir in g_dict_img_seq.keys():
 
                 dbplate = DB.Plate(plate_name, start_frame, end_frame, duration, plate_path, start_timecode, clip_name, scene, take, end_timecode, dbshot, -1)
                 ihdb.create_plate(dbplate)
-                        
+                # upload a thumbnail for the plate_name
+                # first, create a .PNG from the source...
+                generated_thumb_path = utilities.create_thumbnail(thumb_frame_path)
+                ihdb.upload_thumbnail('Plate', dbplate, generated_thumb_path)
+                print "INFO: Uploaded thumbnail %s to DB plate object %s."%(generated_thumb_path, dbplate.g_plate_name)
+
+            print "INFO: Got plate %s object from database with ID of %s."%(dbplate.g_plate_name, dbplate.g_dbid)
+                                    
             if b_create_nuke:
                 # copy/paste read and backdrop
                 new_read = nuke.createNode("Read")
