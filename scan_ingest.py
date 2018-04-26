@@ -18,6 +18,7 @@ from timecode import TimeCode
 
 import OpenEXR
 import Imath
+import sgtk
 
 import db_access as DB
 
@@ -66,7 +67,7 @@ except KeyError:
     pass
     
 g_dict_img_seq = {}
-g_valid_exts = ['exr','ccc','cdl','jpg','pdf']
+g_valid_exts = ['exr','ccc','cdl','jpg','pdf','mov']
 g_path = None
 
 def handle_file_copy(m_srcpath):
@@ -192,6 +193,17 @@ def handle_file_copy(m_srcpath):
         print "%s: %s -> %s"%(g_show_file_operation, m_srcpath, dest_file)
         if g_show_file_operation == "hardlink":
             os.link(m_srcpath, dest_file)
+
+    elif file_array[-1] == 'mov':
+        dest_dir = os.path.join(subbed_shot_dir, "ref")
+        if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir)
+        dest_file = os.path.join(dest_dir, "%s.%s"%(file_array[0], file_array[-1]))
+        if os.path.exists(dest_file):
+            os.unlink(dest_file)
+        print "%s: %s -> %s"%(g_show_file_operation, m_srcpath, dest_file)
+        if g_show_file_operation == "hardlink":
+            os.link(m_srcpath, dest_file)
             
 
 if len(SYSARGV) != 2:
@@ -231,6 +243,12 @@ ihdb = DB.DBAccessGlobals.get_db_access()
 b_create_nuke = False
 
 import nuke
+tk = None
+
+# Shotgun Authentication
+sa = sgtk.authentication.ShotgunAuthenticator()
+user = sa.create_script_user(api_script='spinel_api_access', api_key='0554a1b0a4251fc84e14b78028666c4485aa873bc671246b28a914552aec1032', host='https://qppe.shotgunstudio.com')
+sgtk.set_authenticated_user(user)
 
 for shot_dir in g_dict_img_seq.keys():
     shot = None
@@ -252,9 +270,14 @@ for shot_dir in g_dict_img_seq.keys():
         print "INFO: Nuke script already exists at %s. Skipping."%full_nuke_script_path
     else:
         print "INFO: Creating new Nuke script at %s!"%full_nuke_script_path
-        b_create_nuke = False
+        b_create_nuke = True
 
+    plates = []
     plates = g_dict_img_seq[shot_dir].keys()
+    
+    print "INFO: Plates for shot %s:"%shot
+    print plates
+    
     # handle the main plate
     mainplate_dict = g_dict_img_seq[shot_dir][plates[0]]
     mainplate_ext = mainplate_dict['ext']
@@ -287,6 +310,9 @@ for shot_dir in g_dict_img_seq.keys():
         
     print "INFO: Got shot %s object from database with ID of %s."%(dbshot.g_shot_code, dbshot.g_dbid)
 
+    # grab a toolkit object from the shot entity
+    tk = sgtk.sgtk_from_entity('Shot', int(dbshot.g_dbid))
+    
     # retrive object from database for main plate
     mainplate_base = os.path.basename(plates[0])
     dbplate = ihdb.fetch_plate(mainplate_base, dbshot)
@@ -309,7 +335,9 @@ for shot_dir in g_dict_img_seq.keys():
         start_file_path = "%s.%s.%s"%(plates[0], mainplate_first, mainplate_ext)
         end_file_path = "%s.%s.%s"%(plates[0], mainplate_last, mainplate_ext)
         thumb_frame_path = "%s.%s.%s"%(plates[0], thumb_frame, mainplate_ext)
-
+        clip_name = plate_name
+        scene = ""
+        take = ""
         start_file = OpenEXR.InputFile(start_file_path)
 
         try:
@@ -320,9 +348,7 @@ for shot_dir in g_dict_img_seq.keys():
             take = start_file.header()['Take']
         except KeyError:
             e = sys.exc_info()
-            print e[0]
-            print e[1]
-            print e[2]
+            print "KeyError: metadata key %s not available in EXR file."%e[1]
 
         end_file = OpenEXR.InputFile(end_file_path)
 
@@ -331,9 +357,7 @@ for shot_dir in g_dict_img_seq.keys():
             end_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(end_tc_obj.hours, end_tc_obj.minutes, end_tc_obj.seconds, end_tc_obj.frame)).frame_number() * 1000) / 24)
         except KeyError:
             e = sys.exc_info()
-            print e[0]
-            print e[1]
-            print e[2]
+            print "KeyError: metadata key %s not available in EXR file."%e[1]
 
         dbplate = DB.Plate(plate_name, start_frame, end_frame, duration, plate_path, start_timecode, clip_name, scene, take, end_timecode, dbshot, -1)
         ihdb.create_plate(dbplate)
@@ -343,6 +367,18 @@ for shot_dir in g_dict_img_seq.keys():
         generated_thumb_path = utilities.create_thumbnail(thumb_frame_path)
         ihdb.upload_thumbnail('Plate', dbplate, generated_thumb_path)
         print "INFO: Uploaded thumbnail %s to DB plate object %s."%(generated_thumb_path, dbplate.g_plate_name)
+        
+        # publish the plate using the toolkit API
+        # first, get a context object
+        print "INFO: Retreiving context object for Shot with id = %s from ToolKit API."%dbshot.g_dbid
+        context = tk.context_from_entity('Shot', int(dbshot.g_dbid))
+        # register the publish
+        print "INFO: Registering publish."
+        dbpublishplate = sgtk.util.register_publish(tk, context, plate_path, plate_name, 1, comment = 'Publish of plate by Scan Ingestion script', published_file_type = 'Plate')
+        # upload a thumbnail
+        print "INFO: Uploading thumbnail for publish."
+        ihdb.upload_thumbnail('PublishedFile', dbplate, generated_thumb_path, altid = dbpublishplate['id'])
+
         # upload a thumbnail for the plate to the shot, in the event that this is a new shot
         if b_new_shot_thumb:
             ihdb.upload_thumbnail('Shot', dbshot, generated_thumb_path)
@@ -351,15 +387,31 @@ for shot_dir in g_dict_img_seq.keys():
     print "INFO: Got plate %s object from database with ID of %s."%(dbplate.g_plate_name, dbplate.g_dbid)
 
     if b_create_nuke:
+        print "INFO: Building Nuke Script from template."
         comp_render_dir_dict = { 'pathsep' : os.path.sep, 'compdir' : nuke_script_starter }
         comp_write_path = os.path.join(shot_dir, g_shot_comp_render_dir.format(**comp_render_dir_dict), "%s.%s.%s"%(nuke_script_starter, g_write_frame_format, g_write_extension))
+        print "INFO: About to open: %s"%g_shot_template
         nuke.scriptOpen(g_shot_template)
+        print "INFO: Shot template loaded."
         bd_node = nuke.toNode("BackdropNode1")
         bd_node_w = nuke.toNode("BackdropNode2")
         main_read = nuke.toNode("Read1")
         main_write = nuke.toNode("Write_exr")
         main_cdl = nuke.toNode("VIEWER_INPUT.OCIOCDLTransform1")
-    
+        
+        # handle non-standard plate format
+        start_file_path = "%s.%s.%s"%(plates[0], mainplate_first, mainplate_ext)
+        start_file = OpenEXR.InputFile(start_file_path)
+        dwindow_header = start_file.header()['displayWindow']
+        width = dwindow_header.max.x - dwindow_header.min.x + 1
+        height = dwindow_header.max.y - dwindow_header.min.y + 1
+        fstring = '%d %d Plate Format'%(width, height)
+        fobj = nuke.addFormat(fstring)
+        nuke.root().knob('format').setValue(fobj)        
+        nuke.toNode("Reformat1").knob('format').setValue(fobj)
+        nuke.toNode('Crop1').knob('box').setR(width)
+        nuke.toNode('Crop1').knob('box').setT(height)
+        
         # set the values in the template
         bd_node.knob('label').setValue("<center>%s"%os.path.basename(plates[0]))
         main_read.knob('file').setValue("%s.%s.%s"%(plates[0], g_write_frame_format, mainplate_ext))
@@ -442,6 +494,18 @@ for shot_dir in g_dict_img_seq.keys():
                 ihdb.upload_thumbnail('Plate', dbplate, generated_thumb_path)
                 print "INFO: Uploaded thumbnail %s to DB plate object %s."%(generated_thumb_path, dbplate.g_plate_name)
 
+                # publish the plate using the toolkit API
+                # first, get a context object
+                print "INFO: Retreiving context object for Shot with id = %s from ToolKit API."%dbshot.g_dbid
+                context = tk.context_from_entity('Shot', int(dbshot.g_dbid))
+                # register the publish
+                print "INFO: Registering publish."
+                dbpublishplate = sgtk.util.register_publish(tk, context, plate_path, plate_name, 1, comment = 'Publish of plate by Scan Ingestion script', published_file_type = 'Plate')
+                # upload a thumbnail
+                print "INFO: Uploading thumbnail for publish."
+                ihdb.upload_thumbnail('PublishedFile', dbplate, generated_thumb_path, altid = dbpublishplate['id'])
+
+
             print "INFO: Got plate %s object from database with ID of %s."%(dbplate.g_plate_name, dbplate.g_dbid)
                                     
             if b_create_nuke:
@@ -482,8 +546,32 @@ for shot_dir in g_dict_img_seq.keys():
     
     # that should do it!
     if b_create_nuke:
-        nuke.scriptSaveAs(full_nuke_script_path)
-        print "INFO: Successfully wrote out Nuke script at %s!"%full_nuke_script_path
+        print "INFO: About to save Nuke script %s..."%full_nuke_script_path
+        ret_val = nuke.scriptSaveAs(filename = full_nuke_script_path, overwrite = 1)
+        if ret_val:
+            print "WARNING: Something went wrong."
+            print ret_val
+            print sys.last_type
+            print sys.last_value
+            print sys.last_traceback
+        else:
+            print "INFO: Successfully wrote out Nuke script at %s!"%full_nuke_script_path
+        nuke.scriptClose()
+        
+        # publish the Nuke script
+        print "INFO: Attempting to publish Nuke Script to Shotgun using the Toolkit API..."
+        dbtasks = ihdb.fetch_tasks_for_shot(dbshot)
+        if len(dbtasks) > 0:
+            dbtask = dbtasks[0]
+            context = tk.context_from_entity('Task', int(dbtask.g_dbid))
+            sg_publish_name = os.path.basename(full_nuke_script_path).split('.')[0].split('_v')[0]
+            sg_publish_ver = int(os.path.basename(full_nuke_script_path).split('.')[0].split('_v')[1])
+            dbpublishnk = sgtk.util.register_publish(tk, context, full_nuke_script_path, sg_publish_name, sg_publish_ver, comment = 'Initial publish of stub Nuke script by Scan Ingestion script', published_file_type = 'Nuke Script')
+            existing_thumb_list = glob.glob(os.path.join(shot_thumb_dir, "%s*.png"%shot))
+            if len(existing_thumb_list) > 0:
+                ihdb.upload_thumbnail('PublishedFile', dbtask, existing_thumb_list[0], altid = dbpublishnk['id'])
+            print "INFO: Done."
+        
             
             
             
