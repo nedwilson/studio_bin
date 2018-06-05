@@ -408,9 +408,9 @@ for shot_dir in g_dict_img_seq.keys():
         fstring = '%d %d Plate Format'%(width, height)
         fobj = nuke.addFormat(fstring)
         nuke.root().knob('format').setValue(fobj)        
-        nuke.toNode("Reformat1").knob('format').setValue(fobj)
-        nuke.toNode('Crop1').knob('box').setR(width)
-        nuke.toNode('Crop1').knob('box').setT(height)
+#         nuke.toNode("Reformat1").knob('format').setValue(fobj)
+#         nuke.toNode('Crop1').knob('box').setR(width)
+#         nuke.toNode('Crop1').knob('box').setT(height)
         
         # set the values in the template
         bd_node.knob('label').setValue("<center>%s"%os.path.basename(plates[0]))
