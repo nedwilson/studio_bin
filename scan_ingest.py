@@ -15,7 +15,8 @@ import cdl_convert
 import pprint
 import utilities
 from timecode import TimeCode
-
+import xml.etree.ElementTree as ET
+import xml.dom.minidom as minidom
 import OpenEXR
 import Imath
 import sgtk
@@ -35,7 +36,7 @@ g_shot_scripts_dir = None
 g_shot_script_start = None
 g_shot_template = None
 g_shot_thumb_dir = None
-
+g_cdl_mainplate_regexp = None
 
 def usage():
     print ""
@@ -49,8 +50,8 @@ try:
     g_ih_show_cfg_path = os.environ['IH_SHOW_CFG_PATH']
     config = ConfigParser.ConfigParser()
     config.read(g_ih_show_cfg_path)
-    g_shot_regexp = config.get(g_ih_show_code, 'shot_regexp')
-    g_seq_regexp = config.get(g_ih_show_code, 'sequence_regexp')
+    g_shot_regexp = config.get(g_ih_show_code, 'shot_regexp_ci')
+    g_seq_regexp = config.get(g_ih_show_code, 'sequence_regexp_ci')
     g_shot_dir = config.get(g_ih_show_code, 'shot_dir')
     g_show_file_operation = config.get(g_ih_show_code, 'show_file_operation')
     g_imgseq_regexp = config.get(g_ih_show_code, 'imgseq_regexp')
@@ -60,6 +61,7 @@ try:
     g_write_extension = config.get(g_ih_show_code, 'write_extension')
     g_write_frame_format = config.get(g_ih_show_code, 'write_frame_format')
     g_write_fps = config.get(g_ih_show_code, 'write_fps')
+    g_cdl_mainplate_regexp = config.get(g_ih_show_code, 'cdl_mainplate_regexp')
     g_shot_template = config.get('shot_template', sys.platform)
     g_shot_thumb_dir = config.get('thumbnails', 'shot_thumb_dir')
     print "Successfully loaded show-specific config file for %s."%g_ih_show_code
@@ -67,7 +69,7 @@ except KeyError:
     pass
     
 g_dict_img_seq = {}
-g_valid_exts = ['exr','ccc','cdl','jpg','pdf','mov']
+g_valid_exts = ['exr','dpx','ccc','cdl','jpg','pdf','mov']
 g_path = None
 
 def handle_file_copy(m_srcpath):
@@ -76,7 +78,7 @@ def handle_file_copy(m_srcpath):
     seq = None
     file_array = file_basename.split('.')
     m_cdl_element_regexp = '%s[0-9A-Za-z_]*'%g_shot_regexp
-    m_cdl_mainplate_regexp = 'GS|BS|MP'
+    m_cdl_mainplate_regexp = g_cdl_mainplate_regexp
     b_nocdl = False
     # skip files not in the valid extension list
     if file_array[-1] not in g_valid_exts:
@@ -87,8 +89,8 @@ def handle_file_copy(m_srcpath):
         g_skip_list.append(m_srcpath)
         return
     else:
-        shot = matchobject.group(0)
-        seq = re.search(g_seq_regexp, shot).group(0)
+        shot = matchobject.group(0).lower()
+        seq = re.search(g_seq_regexp, shot).group(0).lower()
 
     subbed_seq_dir = g_shot_dir.replace('/', os.path.sep).replace("SHOW_ROOT", g_ih_show_root).replace("SEQUENCE", seq).replace("SHOT", '')
     # create the sequence if it doesn't exist   
@@ -107,16 +109,23 @@ def handle_file_copy(m_srcpath):
 
     # handle different file types
     
-    if file_array[-1] == 'exr':
-        dest_dir = os.path.join(subbed_shot_dir, "pix", "plates", file_array[0])
+    if file_array[-1] == 'exr' or file_array[-1] == 'dpx':
+        badchar_re = r'\(|\)'
+        badchar_match = re.search(badchar_re, file_array[0])
+        if badchar_match:
+            g_skip_list.append(m_srcpath)
+            return
+        dest_dir = os.path.join(subbed_shot_dir, "pix", "plates", file_array[0].lower())
         if not os.path.exists(dest_dir):
             os.makedirs(dest_dir)
-        dest_file = os.path.join(dest_dir, file_basename)
-        if os.path.exists(dest_file):
-            os.unlink(dest_file)
-        print "%s: %s -> %s"%(g_show_file_operation, m_srcpath, dest_file)
-        if g_show_file_operation == "hardlink":
-            os.link(m_srcpath, dest_file)
+        dest_file = os.path.join(dest_dir, file_basename.lower())
+        if not os.path.exists(dest_file):
+            # os.unlink(dest_file)
+            print "%s: %s -> %s"%(g_show_file_operation, m_srcpath, dest_file)
+            if g_show_file_operation == "hardlink":
+                os.link(m_srcpath, dest_file)
+            elif g_show_file_operation == "copy":
+                shutil.copyfile(m_srcpath, dest_file)
         
         # part of an image sequence?
         matchobject = re.search(g_imgseq_regexp, dest_file)
@@ -151,13 +160,16 @@ def handle_file_copy(m_srcpath):
         if not matchobject:
             cdl_clean_file_head = shot
         else:
-            cdl_clean_file_head = matchobject.group(0)
+            cdl_clean_file_head = matchobject.group(0).lower()
         dest_file = os.path.join(dest_dir, "%s.%s"%(cdl_clean_file_head, file_array[-1]))
         if os.path.exists(dest_file):
             os.unlink(dest_file)
         print "%s: %s -> %s"%(g_show_file_operation, m_srcpath, dest_file)
         if g_show_file_operation == "hardlink":
             os.link(m_srcpath, dest_file)
+        elif g_show_file_operation == "copy":
+            shutil.copyfile(m_srcpath, dest_file)
+            
 
         # if cdl file name matches the main plate for the shot, then create the shot-level CDL
         # also, if NO cdl has been created for the shot, then create the shot-level CDL by default
@@ -171,40 +183,115 @@ def handle_file_copy(m_srcpath):
             print "%s: %s -> %s"%(g_show_file_operation, m_srcpath, dest_file)
             if g_show_file_operation == "hardlink":
                 os.link(m_srcpath, dest_file)
-                
+            elif g_show_file_operation == "copy":
+                shutil.copyfile(m_srcpath, dest_file)
+                                
             # if .cdl file, make a .cc file that Nuke can actually read
-            if file_array[-1] == 'cdl':
-                cdl_convert.reset_all()
-                ccc = cdl_convert.parse_cdl(dest_file)
-                cc = ccc.color_decisions[0].cc
-                cc.id=shot
-                dest_cc_file = '.'.join([os.path.splitext(dest_file)[0], 'cc'])
-                cc.determine_dest('cc',dest_dir)
-                cdl_convert.write_cc(cc)
-                print "INFO: Converted CC File written at %s"%cc.file_out
+            # if file_array[-1] == 'cdl':
+            cdltext = open(dest_file, 'r').read()
+            # slope
+            slope_re_str = r'<Slope>([0-9.-]+) ([0-9.-]+) ([0-9.-]+)</Slope>'
+            slope_re = re.compile(slope_re_str)
+            slope_match = slope_re.search(cdltext)
+            if not slope_match:
+                print "WARNING: XML file %s does not appear to have any valid <Slope> element."%dest_file
+                slope_r = "1.0"
+                slope_g = "1.0"
+                slope_b = "1.0"
+            else:
+                slope_r = slope_match.group(1)
+                slope_g = slope_match.group(2)
+                slope_b = slope_match.group(3)
+
+            # offset
+            offset_re_str = r'<Offset>([0-9.-]+) ([0-9.-]+) ([0-9.-]+)</Offset>'
+            offset_re = re.compile(offset_re_str)
+            offset_match = offset_re.search(cdltext)
+            if not offset_match:
+                print "WARNING: XML file %s does not appear to have any valid <Offset> element."%dest_file
+                offset_r = "0.0"
+                offset_g = "0.0"
+                offset_b = "0.0"
+            else:
+                offset_r = offset_match.group(1)
+                offset_g = offset_match.group(2)
+                offset_b = offset_match.group(3)
+            
+            # power
+            power_re_str = r'<Power>([0-9.-]+) ([0-9.-]+) ([0-9.-]+)</Power>'
+            power_re = re.compile(power_re_str)
+            power_match = power_re.search(cdltext)
+            if not power_match:
+                print "WARNING: XML file %s does not appear to have any valid <Power> element."%dest_file
+                power_r = "1.0"
+                power_g = "1.0"
+                power_b = "1.0"
+            else:
+                power_r = power_match.group(1)
+                power_g = power_match.group(2)
+                power_b = power_match.group(3)
+            
+            # saturation
+            saturation_re_str = r'<Saturation>([0-9.-]+)</Saturation>'
+            saturation_re = re.compile(saturation_re_str)
+            saturation_match = saturation_re.search(cdltext)
+            if not saturation_match:
+                print "WARNING: XML file %s does not appear to have any valid <Saturation> element."%dest_file
+                saturation = "1.0"
+            else:
+                saturation = saturation_match.group(1)
+            
+            # build the XML document tree
+            dest_cc_file = '.'.join([os.path.splitext(dest_file)[0], 'cc'])
+            print "INFO: Creating shot-level .CC file, for Nuke compatibility, at %s"%dest_cc_file
+            root = ET.Element("ColorCorrection", id=shot)
+            sopnode = ET.SubElement(root, "SOPNode")
+            slopenode = ET.SubElement(sopnode, "Slope").text = "%s %s %s"%(slope_r, slope_g, slope_b)
+            offsetnode = ET.SubElement(sopnode, "Offset").text = "%s %s %s"%(offset_r, offset_g, offset_b)
+            powernode = ET.SubElement(sopnode, "Power").text = "%s %s %s"%(power_r, power_g, power_b)
+            satnode = ET.SubElement(root, "SatNode")
+            saturationnode = ET.SubElement(satnode, "Saturation").text = saturation
+            rough_string = ET.tostring(root)
+            reparsed = minidom.parseString(rough_string)
+            pretty_xml = reparsed.toprettyxml(indent='  ')
+            dest_cc_file_handle = open(dest_cc_file, 'w')
+            dest_cc_file_handle.write(pretty_xml)
+            dest_cc_file_handle.close()
+
+            # cdl_convert.reset_all()
+            # ccc = cdl_convert.parse_cdl(dest_file)
+            # cc = ccc.color_decisions[0].cc
+            # cc.id=shot
+            # dest_cc_file = '.'.join([os.path.splitext(dest_file)[0], 'cc'])
+            # cc.determine_dest('cc',dest_dir)
+            # cdl_convert.write_cc(cc)
+            # print "INFO: Converted CC File written at %s"%cc.file_out
                 
     elif file_array[-1] == 'pdf':
         dest_dir = os.path.join(subbed_shot_dir, "data", "count_sheets")
         if not os.path.exists(dest_dir):
             os.makedirs(dest_dir)
-        dest_file = os.path.join(dest_dir, "%s.%s"%(file_array[0], file_array[-1]))
+        dest_file = os.path.join(dest_dir, "%s.%s"%(file_array[0].lower(), file_array[-1]))
         if os.path.exists(dest_file):
             os.unlink(dest_file)
         print "%s: %s -> %s"%(g_show_file_operation, m_srcpath, dest_file)
         if g_show_file_operation == "hardlink":
             os.link(m_srcpath, dest_file)
+        elif g_show_file_operation == "copy":
+            shutil.copyfile(m_srcpath, dest_file)            
 
     elif file_array[-1] == 'mov':
         dest_dir = os.path.join(subbed_shot_dir, "ref")
         if not os.path.exists(dest_dir):
             os.makedirs(dest_dir)
-        dest_file = os.path.join(dest_dir, "%s.%s"%(file_array[0], file_array[-1]))
+        dest_file = os.path.join(dest_dir, "%s.%s"%(file_array[0].lower(), file_array[-1]))
         if os.path.exists(dest_file):
             os.unlink(dest_file)
         print "%s: %s -> %s"%(g_show_file_operation, m_srcpath, dest_file)
         if g_show_file_operation == "hardlink":
             os.link(m_srcpath, dest_file)
-            
+        elif g_show_file_operation == "copy":
+            shutil.copyfile(m_srcpath, dest_file)            
 
 if len(SYSARGV) != 2:
     print("Error: Please provide a valid path to a directory as the first and only command line argument.")
@@ -247,7 +334,7 @@ tk = None
 
 # Shotgun Authentication
 sa = sgtk.authentication.ShotgunAuthenticator()
-user = sa.create_script_user(api_script='spinel_api_access', api_key='0554a1b0a4251fc84e14b78028666c4485aa873bc671246b28a914552aec1032', host='https://qppe.shotgunstudio.com')
+user = sa.create_script_user(api_script='goosebumps2_api_access', api_key='a3a1d0ccd72ffdc073ff151dd52c84abe1a5dd6d4fe18fba1efa882df8b1e36a', host='https://qppe.shotgunstudio.com')
 sgtk.set_authenticated_user(user)
 
 for shot_dir in g_dict_img_seq.keys():
@@ -338,26 +425,37 @@ for shot_dir in g_dict_img_seq.keys():
         clip_name = plate_name
         scene = ""
         take = ""
-        start_file = OpenEXR.InputFile(start_file_path)
-
+        start_file = None
+        start_timecode = 0
         try:
+            start_file = OpenEXR.InputFile(start_file_path)
+            start_timecode = int(start_frame)*1000
             start_tc_obj = start_file.header()['timeCode']
-            start_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(start_tc_obj.hours, start_tc_obj.minutes, start_tc_obj.seconds, start_tc_obj.frame)).frame_number() * 1000) / 24)
+            header_fps = float(start_file.header()['framesPerSecond'].n)/float(start_file.header()['framesPerSecond'].d)
+            start_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(start_tc_obj.hours, start_tc_obj.minutes, start_tc_obj.seconds, start_tc_obj.frame), inputfps=header_fps).frame_number() * 1000) / header_fps)
             clip_name = start_file.header()['reelName']
             scene = start_file.header()['Scene']
             take = start_file.header()['Take']
         except KeyError:
             e = sys.exc_info()
             print "KeyError: metadata key %s not available in EXR file."%e[1]
+        except ValueError as ve:
+            print "ERROR: %s"%ve.message
+        except IOError as ioe:
+            print "WARNING: Image is not in EXR format."            
 
-        end_file = OpenEXR.InputFile(end_file_path)
+        end_file = None
+        end_timecode = 0
 
         try:
+            end_file = OpenEXR.InputFile(end_file_path)
             end_tc_obj = end_file.header()['timeCode']
             end_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(end_tc_obj.hours, end_tc_obj.minutes, end_tc_obj.seconds, end_tc_obj.frame)).frame_number() * 1000) / 24)
         except KeyError:
             e = sys.exc_info()
             print "KeyError: metadata key %s not available in EXR file."%e[1]
+        except IOError as ioe:
+            print "WARNING: Image is not in EXR format."            
 
         dbplate = DB.Plate(plate_name, start_frame, end_frame, duration, plate_path, start_timecode, clip_name, scene, take, end_timecode, dbshot, -1)
         ihdb.create_plate(dbplate)
@@ -401,10 +499,16 @@ for shot_dir in g_dict_img_seq.keys():
         
         # handle non-standard plate format
         start_file_path = "%s.%s.%s"%(plates[0], mainplate_first, mainplate_ext)
-        start_file = OpenEXR.InputFile(start_file_path)
-        dwindow_header = start_file.header()['displayWindow']
-        width = dwindow_header.max.x - dwindow_header.min.x + 1
-        height = dwindow_header.max.y - dwindow_header.min.y + 1
+        start_file = None
+        width = 3424
+        height = 2202
+        try:
+            start_file = OpenEXR.InputFile(start_file_path)
+            dwindow_header = start_file.header()['displayWindow']
+            width = dwindow_header.max.x - dwindow_header.min.x + 1
+            height = dwindow_header.max.y - dwindow_header.min.y + 1
+        except IOError as ioe:
+            print "WARNING: File is not EXR file."
         fstring = '%d %d Plate Format'%(width, height)
         fobj = nuke.addFormat(fstring)
         nuke.root().knob('format').setValue(fobj)        
@@ -461,9 +565,10 @@ for shot_dir in g_dict_img_seq.keys():
                 end_file_path = "%s.%s.%s"%(addlplate, newplate_last, newplate_ext)
                 thumb_frame_path = "%s.%s.%s"%(addlplate, thumb_frame, newplate_ext)
 
-                start_file = OpenEXR.InputFile(start_file_path)
+                start_file = None
 
                 try:
+                    start_file = OpenEXR.InputFile(start_file_path)
                     start_tc_obj = start_file.header()['timeCode']
                     start_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(start_tc_obj.hours, start_tc_obj.minutes, start_tc_obj.seconds, start_tc_obj.frame)).frame_number() * 1000) / 24)
                     clip_name = start_file.header()['reelName']
@@ -474,10 +579,13 @@ for shot_dir in g_dict_img_seq.keys():
                     print e[0]
                     print e[1]
                     print e[2]
+                except IOError as ioe:
+                    print "WARNING: file %s is not exr file."%start_file_path
 
-                end_file = OpenEXR.InputFile(end_file_path)
+                end_file = None
 
                 try:
+                    end_file = OpenEXR.InputFile(end_file_path)
                     end_tc_obj = end_file.header()['timeCode']
                     end_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(end_tc_obj.hours, end_tc_obj.minutes, end_tc_obj.seconds, end_tc_obj.frame)).frame_number() * 1000) / 24)
                 except KeyError:
@@ -485,6 +593,8 @@ for shot_dir in g_dict_img_seq.keys():
                     print e[0]
                     print e[1]
                     print e[2]
+                except IOError as ioe:
+                    print "WARNING: file %s is not exr file."%start_file_path
 
                 dbplate = DB.Plate(plate_name, start_frame, end_frame, duration, plate_path, start_timecode, clip_name, scene, take, end_timecode, dbshot, -1)
                 ihdb.create_plate(dbplate)
