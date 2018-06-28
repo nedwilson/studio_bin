@@ -37,6 +37,7 @@ g_shot_script_start = None
 g_shot_template = None
 g_shot_thumb_dir = None
 g_cdl_mainplate_regexp = None
+g_plate_colorspace = None
 
 def usage():
     print ""
@@ -61,6 +62,7 @@ try:
     g_write_extension = config.get(g_ih_show_code, 'write_extension')
     g_write_frame_format = config.get(g_ih_show_code, 'write_frame_format')
     g_write_fps = config.get(g_ih_show_code, 'write_fps')
+    g_plate_colorspace = config.get(g_ih_show_code, 'plate_colorspace')
     g_cdl_mainplate_regexp = config.get(g_ih_show_code, 'cdl_mainplate_regexp')
     g_shot_template = config.get('shot_template', sys.platform)
     g_shot_thumb_dir = config.get('thumbnails', 'shot_thumb_dir')
@@ -360,7 +362,11 @@ for shot_dir in g_dict_img_seq.keys():
         b_create_nuke = True
 
     plates = []
-    plates = g_dict_img_seq[shot_dir].keys()
+    for plate_key in g_dict_img_seq[shot_dir].keys():
+        if re.search(g_cdl_mainplate_regexp, plate_key):
+            plates.insert(0, plate_key)
+        else:
+            plates.append(plate_key)
     
     print "INFO: Plates for shot %s:"%shot
     print plates
@@ -523,6 +529,7 @@ for shot_dir in g_dict_img_seq.keys():
         main_read.knob('last').setValue(mainplate_last)
         main_read.knob('origfirst').setValue(mainplate_first)
         main_read.knob('origlast').setValue(mainplate_last)
+        main_read.knob('colorspace').setValue(g_plate_colorspace)
         nuke.root().knob('first_frame').setValue(mainplate_first)
         nuke.root().knob('last_frame').setValue(mainplate_last)
         nuke.root().knob('txt_ih_show').setValue(g_ih_show_code)
@@ -648,7 +655,8 @@ for shot_dir in g_dict_img_seq.keys():
                 new_read.knob('last').setValue(newplate_last)
                 new_read.knob('origfirst').setValue(newplate_first)
                 new_read.knob('origlast').setValue(newplate_last)
-            
+                new_read.knob('colorspace').setValue(g_plate_colorspace)
+                
                 last_read = new_read
                 last_read_xpos = new_read_xpos
                 last_bd = new_bd
