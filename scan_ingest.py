@@ -13,13 +13,13 @@ import shutil
 import glob
 import cdl_convert
 import pprint
-import utilities
 from timecode import TimeCode
 import xml.etree.ElementTree as ET
 import xml.dom.minidom as minidom
 import OpenEXR
 import Imath
 import sgtk
+import utilities
 
 import db_access as DB
 
@@ -38,6 +38,7 @@ g_shot_template = None
 g_shot_thumb_dir = None
 g_cdl_mainplate_regexp = None
 g_plate_colorspace = None
+g_nuke_exe_path = None
 
 def usage():
     print ""
@@ -66,9 +67,16 @@ try:
     g_cdl_mainplate_regexp = config.get(g_ih_show_code, 'cdl_mainplate_regexp')
     g_shot_template = config.get('shot_template', sys.platform)
     g_shot_thumb_dir = config.get('thumbnails', 'shot_thumb_dir')
+    g_nuke_exe_path = config.get('nuke_exe_path', sys.platform)
     print "Successfully loaded show-specific config file for %s."%g_ih_show_code
 except KeyError:
     pass
+    
+# put nukescripts into sys.path
+# ns_py_path = os.path.join(os.path.dirname(g_nuke_exe_path), "plugins")
+# sys.path.append(ns_py_path)
+# import nukescripts
+# import utilities
     
 g_dict_img_seq = {}
 g_valid_exts = ['exr','dpx','ccc','cdl','jpg','pdf','mov']
@@ -332,6 +340,7 @@ ihdb = DB.DBAccessGlobals.get_db_access()
 b_create_nuke = False
 
 import nuke
+
 tk = None
 
 # Shotgun Authentication
@@ -571,7 +580,12 @@ for shot_dir in g_dict_img_seq.keys():
                 start_file_path = "%s.%s.%s"%(addlplate, newplate_first, newplate_ext)
                 end_file_path = "%s.%s.%s"%(addlplate, newplate_last, newplate_ext)
                 thumb_frame_path = "%s.%s.%s"%(addlplate, thumb_frame, newplate_ext)
-
+                # timecodes
+                start_timecode = int((int(start_frame) * 1000) / 24)
+                end_timecode = int((int(end_frame) * 1000) / 24)
+                clip_name = ""
+                scene = ""
+                take = ""
                 start_file = None
 
                 try:
