@@ -4,6 +4,8 @@ import sys
 from openpyxl import load_workbook
 import os
 import ConfigParser
+import db_access as DB
+import getpass
 
 supported_filetypes = None
 version_name_transforms = {}
@@ -73,10 +75,40 @@ def open_spreadsheet():
                     d_tmp_note['note_body'] = cell.value
         l_notes.append(d_tmp_note)
     
-    print l_notes
-    
 def insert_notes():
-    pass
+    global l_notes
+    global spreadsheet_file
+    ihdb = DB.DBAccessGlobals.get_db_access()
+    notes_from = ihdb.fetch_artist_from_username(getpass.getuser())
+    t_subject = os.path.splitext(os.path.basename(spreadsheet_file))[0]
+    if not notes_from:
+        print "ERROR: Unable to get user object from database for username %s. Program will exit."%getpass.getuser()
+        return
+    for d_note in l_notes:
+        t_shot = d_note['shot_name']
+        t_version_name = d_note['version_name']
+        t_note_body = d_note['note_body']
+        dbshot = ihdb.fetch_shot(t_shot)
+        if not dbshot:
+            print "ERROR: Unable to retrieve shot object from database for %s."%t_shot
+            continue
+        dbversion = ihdb.fetch_version(t_version_name, dbshot)
+        if not dbversion:
+            print "ERROR: Unable to retrieve version object from database for %s."%t_version_name
+            continue
+        dbnotes = ihdb.fetch_notes_for_version(dbversion)
+        b_notes_dupe = False
+        for dbnote in dbnotes:
+            if dbnote.g_body == t_note_body:
+                print "WARNING: A note with the same content already exists in the database for version %s. Skipping."%t_version_name
+                b_notes_dupe = True
+                break
+        if not b_notes_dupe:
+            print "INFO: Creating new note in database for version %s."%t_version_name
+            new_note = DB.Note(t_subject, dbversion.g_artist, notes_from, [dbshot, dbversion], t_note_body, config.get('note_ingest', 'default_note_type'), -1)
+            ihdb.create_note(new_note)
+            print "INFO: Note successfully created with database ID = %d."%new_note.g_dbid
+            
 
 # make sure that there is one command line argument, which is the path to a valid spreadsheet
 if __name__ == "__main__":
@@ -109,5 +141,3 @@ if __name__ == "__main__":
     open_spreadsheet()
     insert_notes()
         
-        
-    
