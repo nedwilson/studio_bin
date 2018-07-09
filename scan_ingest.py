@@ -341,6 +341,7 @@ b_create_nuke = False
 
 import nuke
 
+
 tk = None
 
 # Shotgun Authentication

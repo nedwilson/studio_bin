@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/bin/python
 
 import sys
 from openpyxl import load_workbook
@@ -13,6 +13,8 @@ shot_name_ch = None
 version_name_ch = None
 note_body_ch = None
 l_notes = []
+ihdb = None
+show_code = None
 
 spreadsheet_file = ""
 config = None
@@ -30,13 +32,61 @@ Supported file types: %s
 """%(message, ', '.join(supported_filetypes))
     return
 
+def shot_final(dbversion):
+    global ihdb, config, show_code
+    shot_status_final = config.get(show_code, 'shot_status_final')
+    task_status_final = config.get(show_code, 'task_status_final')
+    version_status_final = config.get(show_code, 'version_status_final')
+    print "INFO: Version %s is final."%dbversion.g_version_code
+    print "INFO: Setting shot status = %s, task status = %s, and version status = %s."%(shot_status_final, task_status_final, version_status_final)
+    dbversion.g_shot.g_status = shot_status_final
+    dbversion.g_task.g_status = task_status_final
+    dbversion.g_status = version_status_final
+    ihdb.update_shot_status(dbversion.g_shot)
+    ihdb.update_task_status(dbversion.g_task)
+    ihdb.update_version_status(dbversion)
+    
+def shot_pending_2k(dbversion):
+    global ihdb, config, show_code
+    shot_status_p2k = config.get(show_code, 'shot_status_p2k')
+    task_status_p2k = config.get(show_code, 'task_status_p2k')
+    version_status_p2k = config.get(show_code, 'version_status_p2k')
+    print "INFO: Version %s is pending 2K approval."%dbversion.g_version_code
+    print "INFO: Setting shot status = %s, task status = %s, and version status = %s."%(shot_status_p2k, task_status_p2k, version_status_p2k)
+    dbversion.g_shot.g_status = shot_status_p2k
+    dbversion.g_task.g_status = task_status_p2k
+    dbversion.g_status = version_status_p2k
+    ihdb.update_shot_status(dbversion.g_shot)
+    ihdb.update_task_status(dbversion.g_task)
+    ihdb.update_version_status(dbversion)
+    
+def shot_notes(dbversion):
+    global ihdb, config, show_code
+    shot_status_notes = config.get(show_code, 'shot_status_notes')
+    task_status_notes = config.get(show_code, 'task_status_notes')
+    version_status_notes = config.get(show_code, 'version_status_notes')
+    print "INFO: Version %s has outstanding notes."%dbversion.g_version_code
+    print "INFO: Setting shot status = %s, task status = %s, and version status = %s."%(shot_status_notes, task_status_notes, version_status_notes)
+    dbversion.g_shot.g_status = shot_status_notes
+    dbversion.g_task.g_status = task_status_notes
+    dbversion.g_status = version_status_notes
+    ihdb.update_shot_status(dbversion.g_shot)
+    ihdb.update_task_status(dbversion.g_task)
+    ihdb.update_version_status(dbversion)
+    
+shot_triggers = { 'shot_final' : shot_final, 
+                  'shot_pending_2k' : shot_pending_2k }
+
+shot_triggers_keywords = {}
+
 def load_config():
-    global config
+    global config, show_code
     if config == None:
         config = ConfigParser.ConfigParser()
         show_config_path = None
         try:
             show_config_path = os.environ['IH_SHOW_CFG_PATH']
+            show_code = os.environ['IH_SHOW_CODE']
         except KeyError:
             raise RuntimeError("This system does not have an IH_SHOW_CFG_PATH environment variable defined.")
         if not os.path.exists(show_config_path):
@@ -78,6 +128,9 @@ def open_spreadsheet():
 def insert_notes():
     global l_notes
     global spreadsheet_file
+    global ihdb
+    global shot_triggers_keywords
+    note_keyword_match = False
     ihdb = DB.DBAccessGlobals.get_db_access()
     notes_from = ihdb.fetch_artist_from_username(getpass.getuser())
     t_subject = os.path.splitext(os.path.basename(spreadsheet_file))[0]
@@ -108,6 +161,15 @@ def insert_notes():
             new_note = DB.Note(t_subject, dbversion.g_artist, notes_from, [dbshot, dbversion], t_note_body, config.get('note_ingest', 'default_note_type'), -1)
             ihdb.create_note(new_note)
             print "INFO: Note successfully created with database ID = %d."%new_note.g_dbid
+        note_keyword_match = False
+        for trigger in shot_triggers_keywords.keys():
+            if trigger == t_note_body.lower():
+                note_keyword_match = True
+                print "INFO: Found trigger keyword %s in note body. Executing function %s(dbshot)."%(t_note_body, shot_triggers_keywords[trigger].__name__)
+                shot_triggers_keywords[trigger](dbversion)
+                break
+        if not note_keyword_match:
+            shot_notes(dbversion)
             
 
 # make sure that there is one command line argument, which is the path to a valid spreadsheet
@@ -130,6 +192,10 @@ if __name__ == "__main__":
         shot_name_ch = config.get('note_ingest', 'shot_name')
         version_name_ch = config.get('note_ingest', 'version_name')
         note_body_ch = config.get('note_ingest', 'note_body')
+        note_triggers_txt = config.get('note_ingest', 'note_body_triggers')
+        for tmp_trigger in note_triggers_txt.split(','):
+            tmp_keyword, tmp_func_name = tmp_trigger.split('|')
+            shot_triggers_keywords[tmp_keyword] = shot_triggers[tmp_func_name]
     except:
         usage(sys.exc_info()[1])
         exit()
