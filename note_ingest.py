@@ -3,6 +3,7 @@
 import sys
 from openpyxl import load_workbook
 import os
+import re
 import ConfigParser
 import db_access as DB
 import getpass
@@ -59,6 +60,20 @@ def shot_pending_2k(dbversion):
     ihdb.update_shot_status(dbversion.g_shot)
     ihdb.update_task_status(dbversion.g_task)
     ihdb.update_version_status(dbversion)
+
+def shot_temp_approved(dbversion):
+    global ihdb, config, show_code
+    shot_status_tmp = config.get(show_code, 'shot_status_tmp')
+    task_status_tmp = config.get(show_code, 'task_status_tmp')
+    version_status_tmp = config.get(show_code, 'version_status_tmp')
+    print "INFO: Version %s is approved for temp."%dbversion.g_version_code
+    print "INFO: Setting shot status = %s, task status = %s, and version status = %s."%(shot_status_tmp, task_status_tmp, version_status_tmp)
+    dbversion.g_shot.g_status = shot_status_tmp
+    dbversion.g_task.g_status = task_status_tmp
+    dbversion.g_status = version_status_tmp
+    ihdb.update_shot_status(dbversion.g_shot)
+    ihdb.update_task_status(dbversion.g_task)
+    ihdb.update_version_status(dbversion)
     
 def shot_notes(dbversion):
     global ihdb, config, show_code
@@ -75,7 +90,8 @@ def shot_notes(dbversion):
     ihdb.update_version_status(dbversion)
     
 shot_triggers = { 'shot_final' : shot_final, 
-                  'shot_pending_2k' : shot_pending_2k }
+                  'shot_pending_2k' : shot_pending_2k,
+                  'temp_approved' : shot_temp_approved }
 
 shot_triggers_keywords = {}
 
@@ -145,7 +161,16 @@ def insert_notes():
         if not dbshot:
             print "ERROR: Unable to retrieve shot object from database for %s."%t_shot
             continue
-        dbversion = ihdb.fetch_version(t_version_name, dbshot)
+        # dbversion = ihdb.fetch_version(t_version_name, dbshot)
+        dbversion = None
+        dbversions = ihdb.fetch_versions_for_shot(dbshot)
+        for tmp_version in dbversions:
+            tmp_version_match = re.search(t_version_name, tmp_version.g_version_code)
+            if tmp_version_match:
+                print "INFO: Found version match: %s"%tmp_version.g_version_code
+                t_version_name = tmp_version.g_version_code
+                dbversion = ihdb.fetch_version_from_id(tmp_version.g_dbid)
+                break
         if not dbversion:
             print "ERROR: Unable to retrieve version object from database for %s."%t_version_name
             continue
