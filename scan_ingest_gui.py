@@ -288,7 +288,9 @@ class ComboBoxDelegate(QItemDelegate):
         self.commitData.emit(self.sender())
 
     def updateEditorGeometry(self, editor, option, index):
-        editor.setGeometry(option.rect)
+        r = option.rect
+        r.setSize(editor.sizeHint())
+        editor.setGeometry(r)
 
 class LineEditDelegate(QItemDelegate):
     def __init__(self, parent):
@@ -332,7 +334,6 @@ class ScanIngestWindow(QMainWindow):
         self.table_model.output_change.connect(self.output_change_slot)
         self.table_view = QTableView()
         self.table_view.setModel(self.table_model)
-        self.table_view.resizeColumnsToContents()
         self.table_view.setSortingEnabled(True)
         delegate = CheckBoxDelegate(self)
         scb_delegate = ComboBoxDelegate(self)
@@ -351,6 +352,7 @@ class ScanIngestWindow(QMainWindow):
             # self.table_view.openPersistentEditor(self.table_model.index(i, 4))
             self.table_view.openPersistentEditor(self.table_model.index(i, 5))
             # self.table_view.openPersistentEditor(self.table_model.index(i, 6))
+        self.table_view.resizeColumnsToContents()
         self.layout_mid.addWidget(self.table_view)
         self.layout.addLayout(self.layout_mid)
 
@@ -916,6 +918,8 @@ class ScanIngestWindow(QMainWindow):
         type_idx = None
         ename_idx = index.sibling(index.row(), 1)
         ename = ename_idx.data()
+        epath_idx = index.sibling(index.row(), 2)
+        epath = epath_idx.data()
         fpath_idx = index.sibling(index.row(), 6)
         if index.column() == 3:
             scope_idx = index
@@ -944,8 +948,9 @@ class ScanIngestWindow(QMainWindow):
         is_seq = False
         elem_obj = None
         for tmp_elem in g_ingest_sorted:
-            if tmp_elem.element_name == ename:
+            if tmp_elem.get_full_name() == epath:
                 elem_obj = tmp_elem
+                log.info('Found element match: %s = %s'%(tmp_elem.get_full_name(), epath))
                 if tmp_elem.is_seq:
                     is_seq = True
         tmp_parent_wd = ""
