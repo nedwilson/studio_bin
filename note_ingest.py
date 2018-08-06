@@ -157,6 +157,9 @@ def insert_notes():
         t_shot = d_note['shot_name']
         t_version_name = d_note['version_name']
         t_note_body = d_note['note_body']
+        if not t_note_body:
+            print "ERROR: Note for version %s is blank. Skipping."%t_version_name
+            continue
         dbshot = ihdb.fetch_shot(t_shot)
         if not dbshot:
             print "ERROR: Unable to retrieve shot object from database for %s."%t_shot
@@ -188,7 +191,7 @@ def insert_notes():
             print "INFO: Note successfully created with database ID = %d."%new_note.g_dbid
         note_keyword_match = False
         for trigger in shot_triggers_keywords.keys():
-            if trigger == t_note_body.lower():
+            if trigger in t_note_body.lower():
                 note_keyword_match = True
                 print "INFO: Found trigger keyword %s in note body. Executing function %s(dbshot)."%(t_note_body, shot_triggers_keywords[trigger].__name__)
                 shot_triggers_keywords[trigger](dbversion)
