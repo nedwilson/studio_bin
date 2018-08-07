@@ -1,15 +1,22 @@
 #!/Applications/Nuke11.1v4/Nuke11.1v4.app/Contents/MacOS/python
 
 import sys
+import os
 
 if len(sys.argv) < 2:
     print "ERROR: Please provide at least one image sequence or movie on the command line."
     exit()
 
-SYSARGV = sys.argv[1:]
+SYSARGV = None
+master_nuke_script = None
+
+if os.path.splitext(sys.argv[1])[-1] == '.nk':
+    SYSARGV = sys.argv[2:]
+    master_nuke_script = sys.argv[1]
+else:
+    SYSARGV = sys.argv[1:]
 
 import nuke
-import os
 import logging
 import ConfigParser
 import re
@@ -72,12 +79,12 @@ for source_file in SYSARGV:
     ext = os.path.splitext(source_file)[-1].lstrip('.')
     if ext in hires_exts:
         use_hires_stub = True
-        if mainplate_re.search(source_file):
+        if not mainplate:
             mainplate = source_file
         else:
             addl_plates.append(source_file)
     elif ext in movie_exts:
-        if mainplate_re.search(source_file):
+        if not mainref:
             mainref = source_file
         else:
             addl_refs.append(source_file)
@@ -104,8 +111,11 @@ nuke_script_starter = g_shot_script_start.format(**matchobject.groupdict())
 temp_nuke_script_starter = g_temp_script_start.format(**matchobject.groupdict())
 full_nuke_script_path = os.path.join(shot_dir, g_shot_scripts_dir, "%s.nk"%nuke_script_starter)
 temp_full_nuke_script_path = os.path.join(shot_dir, g_shot_scripts_dir, "%s.nk"%temp_nuke_script_starter)
-output_script = None
 
+output_script = None
+if master_nuke_script:
+    output_script = master_nuke_script
+    
 cdl_dir = os.path.join(shot_dir, config.get(g_ih_show_code, 'cdl_dir_format').format(pathsep = os.path.sep))
 cdl_file = '%s.%s'%(shot, config.get(g_ih_show_code, 'cdl_file_ext'))
 cdl_full_path = os.path.join(cdl_dir, cdl_file)
@@ -113,7 +123,8 @@ cdl_full_path = os.path.join(cdl_dir, cdl_file)
 if use_hires_stub:
 
     stub = config.get('shot_template', '%s'%sys.platform)
-    output_script = full_nuke_script_path
+    if not master_nuke_script:
+        output_script = full_nuke_script_path
     log.info("Building Nuke Script for final shot from template.")
     comp_render_dir_dict = { 'pathsep' : os.path.sep, 'compdir' : nuke_script_starter }
     comp_write_path = os.path.join(shot_dir, g_shot_comp_render_dir.format(**comp_render_dir_dict), "%s.%s.%s"%(nuke_script_starter, g_write_frame_format, g_write_extension))
@@ -297,7 +308,9 @@ if use_hires_stub:
 else:
 
     stub = config.get('shot_template', 'temp_%s'%sys.platform)
-    output_script = temp_full_nuke_script_path
+    if not master_nuke_script:
+        output_script = temp_full_nuke_script_path
+        
     log.info("Building Nuke Script for temp shot from template.")
     comp_render_dir_dict = { 'pathsep' : os.path.sep, 'compdir' : temp_nuke_script_starter }
     comp_write_path = os.path.join(shot_dir, g_shot_comp_render_dir.format(**comp_render_dir_dict), "%s.%s.%s"%(temp_nuke_script_starter, g_write_frame_format, g_write_extension))
