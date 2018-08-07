@@ -336,6 +336,7 @@ class ScanIngestWindow(QMainWindow):
         self.table_view.setModel(self.table_model)
         self.table_view.setSortingEnabled(True)
         delegate = CheckBoxDelegate(self)
+        mp_delegate = CheckBoxDelegate(self)
         scb_delegate = ComboBoxDelegate(self)
         scb_delegate.setItems(g_object_scope_list)
         parent_delegate = LineEditDelegate(self)
@@ -347,6 +348,7 @@ class ScanIngestWindow(QMainWindow):
         self.table_view.setItemDelegateForColumn(4, parent_delegate)
         self.table_view.setItemDelegateForColumn(5, typecb_delegate)
         self.table_view.setItemDelegateForColumn(6, destpath_delegate)
+        self.table_view.setItemDelegateForColumn(7, mp_delegate)
         for i in range(self.table_model.rowCount(None)):
             self.table_view.openPersistentEditor(self.table_model.index(i, 3))
             # self.table_view.openPersistentEditor(self.table_model.index(i, 4))
@@ -365,6 +367,15 @@ class ScanIngestWindow(QMainWindow):
         self.buttons.rejected.connect(self.reject)     
         self.layout_bottom.addWidget(self.buttons)
         self.layout.addLayout(self.layout_bottom)
+        width = 0
+        for idx in range(0, len(self.table_model.header)):
+            log.debug("Column %d width is %d"%(idx, self.table_view.sizeHintForColumn(idx)))
+            width = width + self.table_view.sizeHintForColumn(idx)
+
+        screenSize = QApplication.desktop().availableGeometry(self)
+        if width >= screenSize.width:
+            width = screenSize.width
+        self.resize(width, 1080)
         self.results_window = ScanIngestResultsWindow(self)
 
     def reject(self):
@@ -374,7 +385,7 @@ class ScanIngestWindow(QMainWindow):
         QCoreApplication.instance().quit()
 
     def process_ingest(self):
-        global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, g_shot_dir_format, g_shot_thumb_dir
+        global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, g_shot_dir_format, g_shot_thumb_dir, g_version_separator, g_version_format
         self.hide()
         self.results_window.show()
         default_ccobj = CCData(config.get(g_ih_show_code, 'default_cc_%s'%sys.platform))
@@ -499,9 +510,8 @@ class ScanIngestWindow(QMainWindow):
                     log.debug(tmp_io.dest_name)
                     log.debug(mainplate_regexp)
                     if tmp_io.type == 'color correction' and tmp_io.scope == 'shot':
-                        tmp_mo = mainplate_re.search(tmp_io.dest_name)
-                        if tmp_mo:
-                            log.info('This cc file matches the main plate regular expression. Will make the shot default CC file from it.')
+                        if tmp_io.is_mainplate:
+                            log.info('This cc file has been flagged as a Main Plate. Will make the shot default CC file from it.')
                             tmp_ccdata = CCData(ddp)
                             default_cc_file = os.path.join(tmp_io.dest_dir, '%s.%s'%(tmp_io.parent_name, ccext))
                             log.info('Default CC file: %s'%default_cc_file)
@@ -536,13 +546,13 @@ class ScanIngestWindow(QMainWindow):
                             io_obj_primary = None
                             for tmp_io_two in g_ingest_sorted:
                                 if tmp_io_two.scope == 'shot' and tmp_io_two.parent_name == shot and tmp_io_two.extension in config.get('scan_ingest', 'movie_exts').split(','):
-                                    if re.search(mainplate_regexp, tmp_io_two.dest_name):
-                                        log.info('Found a movie element %s that matches the main plate regular expression.'%tmp_io_two.dest_name)
+                                    if tmp_io_two.is_mainplate:
+                                        log.info('Found a movie element %s that is a main plate.'%tmp_io_two.dest_name)
                                         io_obj_primary = tmp_io_two
                             for tmp_io_two in g_ingest_sorted:
                                 if tmp_io_two.scope == 'shot' and tmp_io_two.parent_name == shot and tmp_io_two.extension in config.get('scan_ingest', 'lutted_image_exts').split(',') and tmp_io_two.is_seq:
-                                    if re.search(mainplate_regexp, tmp_io_two.dest_name):
-                                        log.info('Found a high resolution element %s that matches the main plate regular expression.'%tmp_io_two.dest_name)
+                                    if tmp_io_two.is_mainplate:
+                                        log.info('Found a high resolution element %s that matches is a main plate.'%tmp_io_two.dest_name)
                                         io_obj_primary = tmp_io_two
                             
                             
@@ -739,22 +749,38 @@ class ScanIngestWindow(QMainWindow):
             
                 # build a list of every file to add to a Nuke script
                 tmp_shotitems = []
+                tmp_hiresitems = []
+                tmp_refitems = []
+                
                 shot_wd = None
                 dbshot = None
                 movie_exts = config.get('scan_ingest', 'movie_exts').split(',')
                 hires_exts = config.get('scan_ingest', 'lutted_image_exts').split(',')
+
+                log.info(u_shot)
                 
                 for tmp_io in g_ingest_sorted:
+                    
                     if tmp_io.scope == 'shot' and tmp_io.parent_name == u_shot:
                         if tmp_io.extension in movie_exts:
-                            tmp_shotitems.append(os.path.join(tmp_io.dest_dir, tmp_io.dest_name))
+                            if tmp_io.is_mainplate:
+                                tmp_hiresitems.insert(0, os.path.join(tmp_io.dest_dir, tmp_io.dest_name))
+                            else:
+                                tmp_hiresitems.append(os.path.join(tmp_io.dest_dir, tmp_io.dest_name))
                             shot_wd = tmp_io.parent_wd
                             dbshot = tmp_io.parent_dbobject
                         elif tmp_io.extension in hires_exts:
                             if tmp_io.is_seq:
-                                tmp_shotitems.append(os.path.join(tmp_io.dest_dir, tmp_io.dest_name))
+                                if tmp_io.is_mainplate:
+                                    tmp_refitems.insert(0, os.path.join(tmp_io.dest_dir, tmp_io.dest_name))
+                                else:
+                                    tmp_refitems.append(os.path.join(tmp_io.dest_dir, tmp_io.dest_name))
                                 shot_wd = tmp_io.parent_wd
                                 dbshot = tmp_io.parent_dbobject
+
+                                
+                tmp_shotitems.extend(tmp_hiresitems)
+                tmp_shotitems.extend(tmp_refitems)
                 
                 # check to see if we are building a temp script or not
                 b_temp_shot = True
@@ -762,21 +788,39 @@ class ScanIngestWindow(QMainWindow):
                     tmp_ext = os.path.splitext(tmp_item)[-1].lstrip('.')
                     if tmp_ext in config.get('scan_ingest', 'lutted_image_exts').split(','):
                         b_temp_shot = False
-                     
+                
                 # has a Nuke script already been created?
                 nuke_scripts_dir = os.path.join(shot_wd, config.get(g_ih_show_code, 'shot_scripts_dir'))
                 nuke_script_path = None
+                
+                temp_script_name = config.get(g_ih_show_code, 'temp_script_start').format(shot = u_shot)
+                temp_script_path = os.path.join(nuke_scripts_dir, '%s.nk'%temp_script_name)
                 
                 if b_temp_shot:
                     nuke_script_name = config.get(g_ih_show_code, 'temp_script_start').format(shot = u_shot)
                     nuke_script_path = os.path.join(nuke_scripts_dir, '%s.nk'%nuke_script_name)
                 else:
-                    nuke_script_name = config.get(g_ih_show_code, 'shot_script_start').format(shot = u_shot)
+                    nuke_script_name = None
+                    
+                    if os.path.exists(temp_script_path):
+                        log.info('This shot already contains temp Nuke scripts.')
+                        glob_base_list = temp_script_name.split(g_version_separator)
+                        glob_temp_match = os.path.join(nuke_scripts_dir, '%s%s*.nk'%(glob_base_list[0], g_version_separator))
+                        latest_temp = sorted(glob.glob(glob_temp_match))[-1]
+                        log.info('Latest temp version: %s'%latest_temp)
+                        latest_temp_base = os.path.splitext(os.path.basename(latest_temp))[0]
+                        latest_temp_version = int(latest_temp_base.split(g_version_separator)[-1])
+                        start_nuke_version_string = g_version_format%(latest_temp_version + 1)
+                        nuke_script_name = config.get(g_ih_show_code, 'shot_script_start').format(shot = u_shot).split(g_version_separator)[0] + g_version_separator + start_nuke_version_string
+                    else:
+                        nuke_script_name = config.get(g_ih_show_code, 'shot_script_start').format(shot = u_shot)
                     nuke_script_path = os.path.join(nuke_scripts_dir, '%s.nk'%nuke_script_name)
+
 
                 log.info('Likely Nuke script for this shot is %s.'%nuke_script_path)
                 if not os.path.exists(nuke_script_path):
-                    log.info('Script will need to be created.')                
+                    log.info('Script will need to be created.')
+                    tmp_shotitems.insert(0, nuke_script_path)              
                     tmp_shotitems.insert(0, config.get('scan_ingest', 'nuke_script_creator_%s'%sys.platform))
                     log.info('Nuke script creator command line:')
                     log.info(' '.join(tmp_shotitems))
@@ -808,7 +852,7 @@ class ScanIngestWindow(QMainWindow):
                         dbpublishnk = sgtk.util.register_publish(tk, context, nuke_script_path, sg_publish_name, sg_publish_ver, comment = 'Initial publish of stub Nuke script by Scan Ingestion script', published_file_type = 'Nuke Script')
                         if basic_thumbnail_path:
                             ihdb.upload_thumbnail('PublishedFile', dbtask, basic_thumbnail_path, altid = dbpublishnk['id'])
-                        print "INFO: Done."
+                        log.info("Done.")
                 else:
                     log.info('Nuke script already exists at this location.')
                     
@@ -888,6 +932,7 @@ class ScanIngestWindow(QMainWindow):
                 tmp_io.type = row[5]
                 tmp_io.dest_dir = os.path.dirname(row[6])
                 tmp_io.dest_name = os.path.basename(row[6])
+                tmp_io.is_mainplate = row[7]
                 log.info(tmp_io)
                 tmp_ingest_sorted.append(tmp_io)
                         
@@ -898,7 +943,7 @@ class ScanIngestWindow(QMainWindow):
         element_table_ret = []
         global g_ingest_sorted
         for element in reversed(g_ingest_sorted):
-            element_table_ret.append([True, element.element_name, element.get_full_name(), element.scope, element.parent_name, element.type, os.path.join(element.dest_dir, element.dest_name)])
+            element_table_ret.append([True, element.element_name, element.get_full_name(), element.scope, element.parent_name, element.type, os.path.join(element.dest_dir, element.dest_name), element.is_mainplate])
         return element_table_ret
 
     @pyqtSlot(QModelIndex)
@@ -978,7 +1023,7 @@ class ScanIngestWindow(QMainWindow):
         self.table_model.blockSignals(False)
                    
     def table_header(self):
-        element_header_ret = ['Include?', 'Element Name', 'Source Path', 'Scope', 'Parent Name', 'Element Type', 'Destination Path']
+        element_header_ret = ['Include?', 'Element Name', 'Source Path', 'Scope', 'Parent Name', 'Element Type', 'Destination Path', 'Main Plate']
         return element_header_ret
 
 class IngestTableModel(QAbstractTableModel):
@@ -991,7 +1036,7 @@ class IngestTableModel(QAbstractTableModel):
         self.mylist = mylist
         self.header = header
     def flags(self, index):
-        if index.column() in [0, 3, 4, 5, 6]:
+        if index.column() in [0, 3, 4, 5, 6, 7]:
             return Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable
         else: 
             return Qt.ItemIsEnabled | Qt.ItemIsSelectable
@@ -1044,6 +1089,8 @@ class IngestTableModel(QAbstractTableModel):
             self.output_change.emit(index)
         elif index.column() == 6:
             self.mylist[index.row()][6] = value
+        elif index.column() == 7:
+            self.mylist[index.row()][7] = value
         return True
 
     def headerData(self, col, orientation, role):
@@ -1206,12 +1253,15 @@ g_shot_script_start = None
 g_shot_template = None
 g_shot_thumb_dir = None
 g_cdl_mainplate_regexp = None
+g_mainplate_re = None
 g_plate_colorspace = None
 g_nuke_exe_path = None
 g_image_ext_list = []
 g_dest_type_dict = {}
 g_frame_format = None
 g_show_element_dir = None
+g_version_separator = None
+g_version_format = None
 g_rules = []
 config = None
 g_object_scope_list = ['show', 'sequence', 'shot']
@@ -1245,6 +1295,7 @@ try:
     g_write_fps = config.get(g_ih_show_code, 'write_fps')
     g_plate_colorspace = config.get(g_ih_show_code, 'plate_colorspace')
     g_cdl_mainplate_regexp = config.get(g_ih_show_code, 'cdl_mainplate_regexp')
+    g_mainplate_re = re.compile(config.get(g_ih_show_code, 'mainplate_regexp'))
     g_show_element_dir = config.get(g_ih_show_code, 'show_element_dir')
     tmp_case_func = config.get(g_ih_show_code, 'case_func')
     if tmp_case_func == 'lower':
@@ -1254,6 +1305,8 @@ try:
     g_shot_template = config.get('shot_template', sys.platform)
     g_shot_thumb_dir = config.get('thumbnails', 'shot_thumb_dir')
     g_nuke_exe_path = config.get('nuke_exe_path', sys.platform)
+    g_version_separator = config.get(g_ih_show_code, 'version_separator')
+    g_version_format = config.get(g_ih_show_code, 'version_format')
     g_image_ext_list = config.get('scan_ingest', 'image_exts').split(',')
     g_file_ignore_list = read_csv_string(config.get('scan_ingest', 'file_ignore'))
     tmp_type_list = sorted(read_csv_string(config.get('scan_ingest', 'destination_types')))
@@ -1362,6 +1415,8 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                     tmp_io.is_seq = True
                     tmp_io.full_name = seq_key
                     tmp_io.element_name = match.group(1)
+                    if g_mainplate_re.search(tmp_io.element_name):
+                        tmp_io.is_mainplate = True
                     tmp_io.source_dir = dirname
                     tmp_io.regexp_pattern = re_pattern
                     tmp_io.extension = os.path.splitext(fname)[-1].lstrip('.')
@@ -1395,6 +1450,11 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                 log.info('Quicktime movie %s information: frame rate : %.3f fps, start frame : %d, end frame: %d'%(tmp_io.full_name, frame_rate, 1, frames))     
                 tmp_io.start_frame = 1
                 tmp_io.end_frame = frames               
+                if g_mainplate_re.search(tmp_io.element_name):
+                    tmp_io.is_mainplate = True
+            if tmp_io.extension in ['cdl','ccc','cc']:
+                if g_mainplate_re.search(tmp_io.element_name):
+                    tmp_io.is_mainplate = True
             tmp_io.is_seq = False
             g_sequences[noseq_key] = tmp_io
             
