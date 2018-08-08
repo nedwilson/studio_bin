@@ -61,6 +61,20 @@ def shot_pending_2k(dbversion):
     ihdb.update_task_status(dbversion.g_task)
     ihdb.update_version_status(dbversion)
 
+def shot_cbb(dbversion):
+    global ihdb, config, show_code
+    shot_status_cbb = config.get(show_code, 'shot_status_cbb')
+    task_status_cbb = config.get(show_code, 'task_status_cbb')
+    version_status_cbb = config.get(show_code, 'version_status_cbb')
+    print "INFO: Version %s is CBB."%dbversion.g_version_code
+    print "INFO: Setting shot status = %s, task status = %s, and version status = %s."%(shot_status_cbb, task_status_cbb, version_status_cbb)
+    dbversion.g_shot.g_status = shot_status_cbb
+    dbversion.g_task.g_status = task_status_cbb
+    dbversion.g_status = version_status_cbb
+    ihdb.update_shot_status(dbversion.g_shot)
+    ihdb.update_task_status(dbversion.g_task)
+    ihdb.update_version_status(dbversion)
+
 def shot_temp_approved(dbversion):
     global ihdb, config, show_code
     shot_status_tmp = config.get(show_code, 'shot_status_tmp')
@@ -91,7 +105,8 @@ def shot_notes(dbversion):
     
 shot_triggers = { 'shot_final' : shot_final, 
                   'shot_pending_2k' : shot_pending_2k,
-                  'temp_approved' : shot_temp_approved }
+                  'temp_approved' : shot_temp_approved,
+                  'shot_cbb' : shot_cbb }
 
 shot_triggers_keywords = {}
 
