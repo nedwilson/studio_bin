@@ -757,10 +757,10 @@ class ScanIngestWindow(QMainWindow):
                 movie_exts = config.get('scan_ingest', 'movie_exts').split(',')
                 hires_exts = config.get('scan_ingest', 'lutted_image_exts').split(',')
 
-                log.info(u_shot)
+                log.info("Looping through available items for shot %s."%u_shot)
                 
                 for tmp_io in g_ingest_sorted:
-                    
+                    log.debug(tmp_io.obj_debug_info())
                     if tmp_io.scope == 'shot' and tmp_io.parent_name == u_shot:
                         if tmp_io.extension in movie_exts:
                             if tmp_io.is_mainplate:
@@ -777,10 +777,13 @@ class ScanIngestWindow(QMainWindow):
                                     tmp_refitems.append(os.path.join(tmp_io.dest_dir, tmp_io.dest_name))
                                 shot_wd = tmp_io.parent_wd
                                 dbshot = tmp_io.parent_dbobject
-
                                 
                 tmp_shotitems.extend(tmp_hiresitems)
                 tmp_shotitems.extend(tmp_refitems)
+
+                if len(tmp_shotitems) == 0:
+                    log.info("No plates or reference material available in this ingest for shot %s. No Nuke script will be created."%u_shot)
+                    continue
                 
                 # check to see if we are building a temp script or not
                 b_temp_shot = True
@@ -790,6 +793,9 @@ class ScanIngestWindow(QMainWindow):
                         b_temp_shot = False
                 
                 # has a Nuke script already been created?
+                log.debug("Has a nuke script already been created?")
+                log.debug("Shot working directory: %s"%shot_wd)
+                log.debug("Nuke scripts directory: %s"%config.get(g_ih_show_code, 'shot_scripts_dir'))
                 nuke_scripts_dir = os.path.join(shot_wd, config.get(g_ih_show_code, 'shot_scripts_dir'))
                 nuke_script_path = None
                 
