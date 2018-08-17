@@ -172,6 +172,12 @@ def insert_notes():
         t_shot = d_note['shot_name']
         t_version_name = d_note['version_name']
         t_note_body = d_note['note_body']
+        if not t_version_name:
+            print "ERROR: Version name is blank. Skipping."
+            continue
+        if not t_shot:
+            print "ERROR: Shot name is blank. Skipping."
+            continue
         if not t_note_body:
             print "ERROR: Note for version %s is blank. Skipping."%t_version_name
             continue
