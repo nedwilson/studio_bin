@@ -54,7 +54,9 @@ def quicktime_mediainfo(mov_path):
         raise IOError("Path provided as first argument %s does not exist!")
     proc = subprocess.Popen(['mediainfo',mov_path],stdout=subprocess.PIPE)
     while proc.poll() is None:
-        line = proc.stdout.readline()
+        continue
+    lines = proc.stdout.read()
+    for line in lines.split('\n'):
         if ':' in line:
             mi_line = line.split(':')
             mi_key = mi_line[0].strip()
@@ -719,6 +721,10 @@ class ScanIngestWindow(QMainWindow):
                         b_new_shot_thumb = True
                     
                     # first, create a .PNG from the source...
+                    log.debug(dest_full_path)
+                    log.debug(tmp_io.start_frame)
+                    log.debug(tmp_io.end_frame)
+                    log.info("About to call create_thumbnail_from_movie()...")
                     generated_thumb_path = thumbnails.create_thumbnail_from_movie(dest_full_path, ((tmp_io.end_frame - tmp_io.start_frame)/2) + tmp_io.start_frame)
                     log.info("Created thumbnail %s."%(generated_thumb_path))
 
@@ -1451,6 +1457,12 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                 if duration_match:
                     duration_seconds = float(duration_match.group(1))
                     duration_ms = float(duration_match.group(2))
+                else:
+                    duration_subsecond_re = '([0-9]+) ms'
+                    duration_match = re.search(duration_subsecond_re, mediainfo['Duration'])
+                    if duration_match:
+                        duration_ms = float(duration_match.group(1))
+                        
                 total_duration = (duration_seconds * frame_rate) + ((duration_ms/miliseconds)*frame_rate)
                 frames = int(round(total_duration))
                 log.info('Quicktime movie %s information: frame rate : %.3f fps, start frame : %d, end frame: %d'%(tmp_io.full_name, frame_rate, 1, frames))     
