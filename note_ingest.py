@@ -141,8 +141,18 @@ def open_spreadsheet():
     col_indices = {n: cell.value for n, cell in enumerate(ws.rows.next()) 
                if cell.value in colnames}
     
+    row_num = 1
     for row in ws.iter_rows(min_row=2):
+        row_num = row_num + 1
         d_tmp_note = {}
+        b_hasblanks = False
+        for index, cell in enumerate(row):
+            if index in col_indices:
+                if cell.value == None or len(cell.value) < 1:
+                    print "ERROR in row %d: column %d is blank."%(row_num, index)
+                    b_hasblanks = True
+        if b_hasblanks:
+            continue
         for index, cell in enumerate(row):
             if index in col_indices:
                 if col_indices[index] == shot_name_ch:
