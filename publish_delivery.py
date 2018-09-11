@@ -9,12 +9,14 @@ parser.add_argument('--gui', help='Launches the GUI version of the application',
 parser.add_argument('--hires', help='Creates a hi-resolution delivery instead of a Quicktime-only delivery', action='store_true')
 parser.add_argument('--interactive', help='Will prompt the user for version removal in the Terminal', action='store_true')
 parser.add_argument('--noemail', help='Will not sync or send email', action='store_true')
+parser.add_argument('--matte', help='Creates a matte delivery', action='store_true')
 args = parser.parse_args()
 
 b_gui = False
 b_hires = False
 b_interactive = False
 b_email = True
+b_matte = False
 
 if args.gui:
     b_gui = True
@@ -33,13 +35,17 @@ if args.interactive:
 if args.noemail:
     b_email = False
     print "INFO: Setting noemail to True - will not send email or sync delivery folder."
+
+if args.matte:
+    b_matte = True
+    b_hires = False
+    print "INFO: Building a matte delivery."
     
 delivery.globals_from_config()
-# delivery.load_versions_for_status(delivery.g_version_status)
 
 if b_gui:
-    delivery.display_window(m_2k=b_hires, send_email=b_email)
+    delivery.display_window(m_2k=b_hires, send_email=b_email, m_matte=b_matte)
 else:
-    delivery.execute_shell(m_interactive=b_interactive, m_2k=b_hires, send_email=b_email)
+    delivery.execute_shell(m_interactive=b_interactive, m_2k=b_hires, send_email=b_email, m_matte=b_matte)
 
     
