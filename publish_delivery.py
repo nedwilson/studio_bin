@@ -10,6 +10,7 @@ parser.add_argument('--hires', help='Creates a hi-resolution delivery instead of
 parser.add_argument('--interactive', help='Will prompt the user for version removal in the Terminal', action='store_true')
 parser.add_argument('--noemail', help='Will not sync or send email', action='store_true')
 parser.add_argument('--matte', help='Creates a matte delivery', action='store_true')
+parser.add_argument('--combined', help='Delivers both high resolution and movie files', action='store_true')
 args = parser.parse_args()
 
 b_gui = False
@@ -17,6 +18,7 @@ b_hires = False
 b_interactive = False
 b_email = True
 b_matte = False
+b_combined = False
 
 if args.gui:
     b_gui = True
@@ -36,6 +38,10 @@ if args.noemail:
     b_email = False
     print "INFO: Setting noemail to True - will not send email or sync delivery folder."
 
+if args.combined:
+    b_combined = True
+    print "INFO: Setting combined to true - will include both movie files and high resolution images in this package."
+
 if args.matte:
     b_matte = True
     b_hires = False
@@ -44,8 +50,8 @@ if args.matte:
 delivery.globals_from_config()
 
 if b_gui:
-    delivery.display_window(m_2k=b_hires, send_email=b_email, m_matte=b_matte)
+    delivery.display_window(m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined)
 else:
-    delivery.execute_shell(m_interactive=b_interactive, m_2k=b_hires, send_email=b_email, m_matte=b_matte)
+    delivery.execute_shell(m_interactive=b_interactive, m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined)
 
     

@@ -250,7 +250,7 @@ def send_email(delivery_directory, file_list, shot_count):
 
     final_destination_dir = os.path.join(g_rsync_dest, os.path.split(delivery_directory)[-1])
     	
-    d_email_text = {'shot_count' : shot_count, 'delivery_folder' : final_destination_dir, 'shot_list' : formatted_list}
+    d_email_text = {'shot_count' : shot_count, 'delivery_folder' : final_destination_dir, 'shot_list' : formatted_list, 'package' : os.path.split(delivery_directory)[-1]}
     msg = g_email_text.format(**d_email_text).replace('\\r', '\r')
     csvfiles = glob.glob(os.path.join(delivery_directory, '*.csv'))
     d_email_subject = {'package' : os.path.split(delivery_directory)[-1]}
