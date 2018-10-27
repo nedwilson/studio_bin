@@ -1,5 +1,10 @@
 #!/usr/local/bin/python
 
+# ssl certificate verify hack
+
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 import sys
 import os
 import difflib
