@@ -653,7 +653,10 @@ class ScanIngestWindow(QMainWindow):
                             start_file = OpenEXR.InputFile(start_file_path)
                             start_timecode = int(start_frame)*1000
                             start_tc_obj = start_file.header()['timeCode']
-                            header_fps = float(start_file.header()['framesPerSecond'].n)/float(start_file.header()['framesPerSecond'].d)
+                            if start_file.header()['Framerate']:
+                                header_fps = float(start_file.header()['Framerate'])
+                            else:
+                                header_fps = float(start_file.header()['framesPerSecond'].n)/float(start_file.header()['framesPerSecond'].d)
                             start_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(start_tc_obj.hours, start_tc_obj.minutes, start_tc_obj.seconds, start_tc_obj.frame), inputfps=header_fps).frame_number() * 1000) / header_fps)
                             clip_name = start_file.header()['reelName']
                             scene = start_file.header()['Scene']
@@ -665,6 +668,9 @@ class ScanIngestWindow(QMainWindow):
                             log.error("%s"%ve.message)
                         except IOError as ioe:
                             log.warning("Image is not in EXR format.")
+                        except AttributeError as atte:
+                            log.warning("Caught AttributeError when trying to extract header information from EXR file.")
+                            log.warning(atte.strerror)
 
                         end_file = None
                         end_timecode = 0
