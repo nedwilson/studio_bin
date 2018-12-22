@@ -8,7 +8,7 @@ import ConfigParser
 import db_access as DB
 import getpass
 
-supported_filetypes = None
+supported_filetypes = ['.xlsx']
 version_name_transforms = {}
 shot_name_ch = None
 version_name_ch = None
@@ -43,6 +43,20 @@ def shot_final(dbversion):
     dbversion.g_shot.g_status = shot_status_final
     dbversion.g_task.g_status = task_status_final
     dbversion.g_status = version_status_final
+    ihdb.update_shot_status(dbversion.g_shot)
+    ihdb.update_task_status(dbversion.g_task)
+    ihdb.update_version_status(dbversion)
+
+def shot_omit(dbversion):
+    global ihdb, config, show_code
+    shot_status_omit = config.get(show_code, 'shot_status_omit')
+    task_status_omit = config.get(show_code, 'task_status_omit')
+    version_status_omit = config.get(show_code, 'version_status_omit')
+    print "INFO: Shot %s is omit."%dbversion.g_shot.g_shot_code
+    print "INFO: Setting shot status = %s, task status = %s, and version status = %s."%(shot_status_omit, task_status_omit, version_status_omit)
+    dbversion.g_shot.g_status = shot_status_omit
+    dbversion.g_task.g_status = task_status_omit
+    dbversion.g_status = version_status_omit
     ihdb.update_shot_status(dbversion.g_shot)
     ihdb.update_task_status(dbversion.g_task)
     ihdb.update_version_status(dbversion)
@@ -106,7 +120,8 @@ def shot_notes(dbversion):
 shot_triggers = { 'shot_final' : shot_final, 
                   'shot_pending_2k' : shot_pending_2k,
                   'temp_approved' : shot_temp_approved,
-                  'shot_cbb' : shot_cbb }
+                  'shot_cbb' : shot_cbb,
+                  'shot_omit' : shot_omit }
 
 shot_triggers_keywords = {}
 
