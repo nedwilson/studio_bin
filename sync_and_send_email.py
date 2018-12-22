@@ -143,7 +143,7 @@ def handle_rsync(m_source_folder):
             
 def get_credentials():
     global log
-    global g_credentials_dir, g_gmail_greds, g_application_name, g_client_secret, g_gmail_scopes
+    global g_credentials_dir, g_gmail_creds, g_application_name, g_client_secret, g_gmail_scopes
     if not os.path.exists(g_credentials_dir):
         log.warning("Credentials directory in config file %s does not exist. Creating."%g_credentials_dir)
         os.makedirs(g_credentials_dir)
