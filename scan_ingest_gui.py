@@ -532,7 +532,7 @@ class ScanIngestWindow(QMainWindow):
             for tmp_io in g_ingest_sorted:
                 if tmp_io.scope == 'shot':
                     if tmp_io.parent_name not in uniq_shots.keys():
-                        seq_regexp = '^(%s)'%g_seq_regexp
+                        seq_regexp = '(%s)'%g_seq_regexp
                         seq_match = re.search(seq_regexp, tmp_io.parent_name)
                         if not seq_match:
                             raise ValueError("Unable to get sequence name from shot name %s using regexp %s"%(tmp_io.parent_name, seq_regexp))
