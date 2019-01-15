@@ -1,4 +1,4 @@
-#!/Applications/Nuke11.1v4/Nuke11.1v4.app/Contents/MacOS/python
+#!/Applications/Nuke11.3v1/Nuke11.3v1.app/Contents/MacOS/python
 
 import sys
 import os
