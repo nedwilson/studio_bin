@@ -51,7 +51,15 @@
 				<key>ActionParameters</key>
 				<dict>
 					<key>source</key>
-					<string>on run {input, parameters}	repeat with i in input		set xlspreadsheet to quoted form of POSIX path of i		tell application "Terminal"			do script "/Volumes/raid_vol01/shows/SHARED/bin/scan_ingest_gui.py " &amp; xlspreadsheet		end tell	end repeat	return inputend run</string>
+					<string>on run {input, parameters}
+	repeat with i in input
+		set xlspreadsheet to quoted form of POSIX path of i
+		tell application "Terminal"
+			do script "/Volumes/romeo_primary/SHOTS/SHARED/bin/scan_ingest_gui.py " &amp; xlspreadsheet
+		end tell
+	end repeat
+	return input
+end run</string>
 				</dict>
 				<key>BundleIdentifier</key>
 				<string>com.apple.Automator.RunScript</string>
