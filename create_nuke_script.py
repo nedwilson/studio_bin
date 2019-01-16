@@ -333,6 +333,12 @@ else:
 
     start_frame = int(main_read.knob('first').value()) + g_movie_frame_offset
     end_frame = int(main_read.knob('last').value()) + g_movie_frame_offset
+    # Add a FrameRange node to compensate for the Read node not setting it correctly when the source is a Quicktime Movie
+    main_read.knob('selected').setValue(True)
+    fr_node = nuke.createNode('FrameRange')
+    fr_node.knob('first_frame').setValue(start_frame)
+    fr_node.knob('last_frame').setValue(end_frame)
+
     head_in = start_frame + int(config.get('scan_ingest', 'head_in_offset'))
     tail_out = end_frame + int(config.get('scan_ingest', 'tail_out_offset'))
     log.debug(str(start_frame))
@@ -381,7 +387,15 @@ else:
         new_read.knob('colorspace').setValue(g_movie_colorspace)
         new_read.knob('frame_mode').setValue('offset')
         new_read.knob('frame').setValue(str(-1*g_movie_frame_offset))
-        
+
+        # Add a FrameRange node to compensate for the Read node not setting it correctly when the source is a Quicktime Movie
+        new_start_frame = int(new_read.knob('first').value()) + g_movie_frame_offset
+        new_end_frame = int(new_read.knob('last').value()) + g_movie_frame_offset
+        new_read.knob('selected').setValue(True)
+        new_fr_node = nuke.createNode('FrameRange')
+        new_fr_node.knob('first_frame').setValue(new_start_frame)
+        new_fr_node.knob('last_frame').setValue(new_end_frame)
+
         last_read = new_read
         last_read_xpos = new_read_xpos
         last_bd = new_bd
