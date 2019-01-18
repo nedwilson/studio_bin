@@ -1482,19 +1482,24 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                 frame_rate_match = re.search(frame_rate_re, mediainfo['Frame rate'])
                 if frame_rate_match:
                     frame_rate = float(frame_rate_match.group(1))
+                duration_minutes = 0.0
                 duration_seconds = 0.0
                 duration_ms = 0.0
-                duration_re = '^([0-9]+) s ([0-9]+) ms'
-                duration_match = re.search(duration_re, mediainfo['Duration'])
-                if duration_match:
-                    duration_seconds = float(duration_match.group(1))
-                    duration_ms = float(duration_match.group(2))
-                else:
-                    duration_subsecond_re = '([0-9]+) ms'
-                    duration_match = re.search(duration_subsecond_re, mediainfo['Duration'])
-                    if duration_match:
-                        duration_ms = float(duration_match.group(1))
-                        
+                duration_min_re = '([0-9]+) min'
+                duration_sec_re = '([0-9]+) s'
+                duration_ms_re = '([0-9]+) ms'
+                duration_min_match = re.search(duration_min_re, mediainfo['Duration'])
+                duration_sec_match = re.search(duration_sec_re, mediainfo['Duration'])
+                duration_ms_match = re.search(duration_ms_re, mediainfo['Duration'])
+
+                if duration_sec_match:
+                    duration_seconds = float(duration_sec_match.group(1))
+                if duration_min_match:
+                    duration_minutes = float(duration_min_match.group(1))
+                    duration_seconds = duration_seconds + (60.0 * duration_minutes)
+                if duration_ms_match:
+                    duration_ms = float(duration_ms_match.group(1))
+
                 total_duration = (duration_seconds * frame_rate) + ((duration_ms/miliseconds)*frame_rate)
                 frames = int(round(total_duration))
                 log.info('Quicktime movie %s information: frame rate : %.3f fps, start frame : %d, end frame: %d'%(tmp_io.full_name, frame_rate, 1, frames))     
