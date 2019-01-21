@@ -870,17 +870,28 @@ class ScanIngestWindow(QMainWindow):
                     QApplication.processEvents()
                     
                     dbtask = None
-                    # create a temp task in the database
+                    dbtasks = ihdb.fetch_tasks_for_shot(dbshot)
+                    # create a temp task in the database, if it doesn't already exist
                     if b_temp_shot:
-                        dbtask = DB.Task(config.get('scan_ingest', 'temp_comp_task_name'), None, None, uniq_shots[u_shot]['dbshot'], -1)
-                        dbtask.set_pipeline_step_id(int(config.get('database', 'shotgun_temp_pipeline_step_id')))
-                        log.info('Creating a %s task in the database for shot %s.'%(config.get('scan_ingest', 'temp_comp_task_name'), u_shot))
-                        ihdb.create_task(dbtask)
+                        str_temp_comp_task_name = config.get('database', 'temp_comp_task_name')
+                        for tmptask in dbtasks:
+                            if tmptask.g_task_name == str_temp_comp_task_name:
+                                dbtask = tmptask
+                        if not dbtask:
+                            dbtask = DB.Task(str_temp_comp_task_name, None, None, uniq_shots[u_shot]['dbshot'], -1)
+                            dbtask.set_pipeline_step_id(int(config.get('database', 'shotgun_temp_pipeline_step_id')))
+                            log.info('Creating a %s task in the database for shot %s.'%(str_temp_comp_task_name, u_shot))
+                            ihdb.create_task(dbtask)
                     else:
-                        dbtasks = ihdb.fetch_tasks_for_shot(dbshot)
-                        if len(dbtasks) > 0:
-                            dbtask = dbtasks[0]
-                            
+                        str_final_comp_task_name = config.get('database', 'final_comp_task_name')
+                        for tmptask in dbtasks:
+                            if tmptask.g_task_name == str_final_comp_task_name:
+                                dbtask = tmptask
+                        if not dbtask:
+                            dbtask = DB.Task(str_final_comp_task_name, None, None, uniq_shots[u_shot]['dbshot'], -1)
+                            dbtask.set_pipeline_step_id(int(config.get('database', 'shotgun_comp_pipeline_step_id')))
+                            log.info('Creating a %s task in the database for shot %s.'%(str_final_comp_task_name, u_shot))
+                            ihdb.create_task(dbtask)
                     if dbtask:
                         log.info("Attempting to publish Nuke Script to Shotgun using the Toolkit API...")
                         context = tk.context_from_entity('Task', int(dbtask.g_dbid))
