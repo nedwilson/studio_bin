@@ -398,10 +398,12 @@ class ScanIngestWindow(QMainWindow):
         QCoreApplication.instance().quit()
 
     def process_ingest(self):
-        global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, g_shot_dir_format, g_shot_thumb_dir, g_version_separator, g_version_format
+        global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, g_shot_dir_format, g_shot_thumb_dir, g_version_separator, g_version_format, g_cdl_file_ext
         self.hide()
         self.results_window.show()
-        default_ccobj = CCData(config.get(g_ih_show_code, 'default_cc_%s'%sys.platform))
+        default_ccobj = CCData()
+        if g_cdl_file_ext != 'cube':
+            default_ccobj = CCData(config.get(g_ih_show_code, 'default_cc_%s'%sys.platform))
         ccdir = config.get(g_ih_show_code, 'cdl_dir_format').format(pathsep = os.path.sep)
         ccext = config.get(g_ih_show_code, 'cdl_file_ext')
         mainplate_regexp = config.get(g_ih_show_code, 'mainplate_regexp')
@@ -1332,6 +1334,7 @@ g_frame_format = None
 g_show_element_dir = None
 g_version_separator = None
 g_version_format = None
+g_cdl_file_ext = 'cdl'
 g_rules = []
 config = None
 g_object_scope_list = ['show', 'sequence', 'shot']
@@ -1386,6 +1389,7 @@ try:
         type, path_fmt = tmp_type.split('|')
         g_dest_type_dict[type] = path_fmt
     g_frame_format = config.get(g_ih_show_code, 'write_frame_format')
+    g_cdl_file_ext = config.get(g_ih_show_code, 'cdl_file_ext')
     log.info("Successfully loaded show-specific config file for %s."%g_ih_show_code)
     ihdb = DB.DBAccessGlobals.get_db_access()
 
