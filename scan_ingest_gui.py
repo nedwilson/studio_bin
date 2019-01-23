@@ -519,13 +519,23 @@ class ScanIngestWindow(QMainWindow):
                     log.debug(mainplate_regexp)
                     if tmp_io.type == 'color correction' and tmp_io.scope == 'shot':
                         if tmp_io.is_mainplate:
-                            log.info('This cc file has been flagged as a Main Plate. Will make the shot default CC file from it.')
-                            tmp_ccdata = CCData(ddp)
-                            default_cc_file = os.path.join(tmp_io.dest_dir, '%s.%s'%(tmp_io.parent_name, ccext))
-                            log.info('Default CC file: %s'%default_cc_file)
-                            tmp_ccdata.get_write_function(ccext)(default_cc_file)
-                            self.results_window.delivery_results.appendPlainText("INFO: Wrote out default CC file for shot at %s."%default_cc_file)
-                            QApplication.processEvents()
+                            default_cc_file = os.path.join(tmp_io.dest_dir, '%s.%s' % (tmp_io.parent_name, ccext))
+                            if tmp_io.extension == 'cube':
+                                log.info('This cube file has been flagged as a Main Plate. Will make the shot default cube file from it.')
+                                log.debug('%s: %s -> %s'%(file_operation, tmp_io.full_name, default_cc_file))
+                                if file_operation == "hardlink":
+                                    os.link(tmp_io.full_name, default_cc_file)
+                                elif file_operation == "copy":
+                                    shutil.copyfile(tmp_io.full_name, default_cc_file)
+                                self.results_window.delivery_results.appendPlainText("INFO: Wrote out default CUBE file for shot at %s."%default_cc_file)
+                                QApplication.processEvents()
+                            else:
+                                log.info('This cc file has been flagged as a Main Plate. Will make the shot default CC file from it.')
+                                tmp_ccdata = CCData(ddp)
+                                log.info('Default CC file: %s'%default_cc_file)
+                                tmp_ccdata.get_write_function(ccext)(default_cc_file)
+                                self.results_window.delivery_results.appendPlainText("INFO: Wrote out default CC file for shot at %s."%default_cc_file)
+                                QApplication.processEvents()
 
             # step 3: query the database for unique shots
             uniq_shots = {}
@@ -1518,7 +1528,7 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                 tmp_io.end_frame = frames               
                 if g_mainplate_re.search(tmp_io.element_name):
                     tmp_io.is_mainplate = True
-            if tmp_io.extension in ['cdl','ccc','cc']:
+            if tmp_io.extension in ['cdl','ccc','cc', 'cube']:
                 if g_mainplate_re.search(tmp_io.element_name):
                     tmp_io.is_mainplate = True
             tmp_io.is_seq = False
