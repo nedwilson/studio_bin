@@ -402,8 +402,9 @@ class ScanIngestWindow(QMainWindow):
         self.hide()
         self.results_window.show()
         default_ccobj = CCData()
+        default_ccfile_from_cfg = config.get(g_ih_show_code, 'default_cc_%s'%sys.platform)
         if g_cdl_file_ext != 'cube':
-            default_ccobj = CCData(config.get(g_ih_show_code, 'default_cc_%s'%sys.platform))
+            default_ccobj = CCData(default_ccfile_from_cfg)
         ccdir = config.get(g_ih_show_code, 'cdl_dir_format').format(pathsep = os.path.sep)
         ccext = config.get(g_ih_show_code, 'cdl_file_ext')
         mainplate_regexp = config.get(g_ih_show_code, 'mainplate_regexp')
@@ -446,7 +447,10 @@ class ScanIngestWindow(QMainWindow):
                     log.info("Creating default color correction for shot.")
                     default_cc_file = os.path.join(tmp_shot_wd, ccdir, '%s.%s'%(os.path.basename(tmp_shot_wd), ccext))
                     log.info("Default color correction file: %s"%default_cc_file)
-                    default_ccobj.get_write_function(ccext)(default_cc_file)
+                    if g_cdl_file_ext == 'cube':
+                        shutil.copyfile(default_ccfile_from_cfg, default_cc_file)
+                    else:
+                        default_ccobj.get_write_function(ccext)(default_cc_file)
                     self.results_window.delivery_results.appendPlainText("INFO: Added default color correction file at %s."%default_cc_file)
                     QApplication.processEvents()
             for tmp_sequence_wd in tmp_sequence_wds_uniq:
