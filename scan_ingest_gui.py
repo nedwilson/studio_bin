@@ -46,6 +46,11 @@ if not os.path.exists(os.path.dirname(logfile)):
 logFormatter = logging.Formatter("%(asctime)s:[%(threadName)s]:[%(levelname)s]:%(message)s")
 log = logging.getLogger()
 log.setLevel(logging.INFO)
+try:
+    devmode = os.environ['NUKE_DEVEL']
+    log.setLevel(logging.DEBUG)
+except:
+    pass
 fileHandler = logging.FileHandler(logfile)
 fileHandler.setFormatter(logFormatter)
 log.addHandler(fileHandler)
@@ -1529,8 +1534,10 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                 if g_mainplate_re.search(tmp_io.element_name):
                     tmp_io.is_mainplate = True
             if tmp_io.extension in ['cdl','ccc','cc', 'cube']:
+                log.debug('File is a LUT.')
                 if g_mainplate_re.search(tmp_io.element_name):
                     tmp_io.is_mainplate = True
+                    log.debug('File matches the main plate regular expression')
             tmp_io.is_seq = False
             g_sequences[noseq_key] = tmp_io
             
