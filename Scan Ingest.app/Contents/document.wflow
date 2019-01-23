@@ -55,7 +55,7 @@
 	repeat with i in input
 		set xlspreadsheet to quoted form of POSIX path of i
 		tell application "Terminal"
-			do script "/Volumes/romeo_primary/SHOTS/SHARED/bin/scan_ingest_gui.py " &amp; xlspreadsheet
+			do script system attribute "IH_SHOW_ROOT" &amp; "SHARED/bin/scan_ingest_gui.py " &amp; xlspreadsheet
 		end tell
 	end repeat
 	return input
