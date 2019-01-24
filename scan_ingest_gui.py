@@ -775,16 +775,12 @@ class ScanIngestWindow(QMainWindow):
                         log.info("Uploaded thumbnail %s to DB plate object %s."%(generated_thumb_path, dbplate.g_plate_name))
     
                         # publish the plate using the toolkit API
-                        # first, get a context object
-                        log.info("Retreiving context object for Shot with id = %s from ToolKit API."%dbshot.g_dbid)
-                        context = tk.context_from_entity('Shot', int(dbshot.g_dbid))
-                        # register the publish
+                        log.info('Publishing this plate to the database...')
                         dbpublishplate = None
                         try:
-                            log.info("Registering publish.")
-                            dbpublishplate = sgtk.util.register_publish(tk, context, plate_path, plate_name, 1, comment = 'Publish of plate by Scan Ingestion script', published_file_type = 'Plate')
+                            dbpublishplate = ihdb.publish_for_ingest(dbshot, plate_path, plate_name, 'Publish of plate by Scan Ingestion script', 'Plate')
                         except:
-                            log.error("Caught exception when trying to register_publish of plate!")
+                            log.error("Caught exception when trying to publish a plate!")
                             log.error(sys.exc_info()[0])
                             log.error(sys.exc_info()[1])
                         # upload a thumbnail
@@ -827,20 +823,16 @@ class ScanIngestWindow(QMainWindow):
                     generated_thumb_path = thumbnails.create_thumbnail_from_movie(dest_full_path, ((tmp_io.end_frame - tmp_io.start_frame)/2) + tmp_io.start_frame)
                     log.info("Created thumbnail %s."%(generated_thumb_path))
 
-                    # publish the movie using the toolkit API
-                    # first, get a context object
-                    log.info("Retreiving context object for Shot with id = %s from ToolKit API."%dbshot.g_dbid)
-                    context = tk.context_from_entity('Shot', int(dbshot.g_dbid))
-                    # register the publish
-                    log.info("Registering publish.")
+                    # publish the movie
+                    log.info('Publishing this movie to the database...')
                     dbpublishmovie = None
                     try:
-                        dbpublishmovie = sgtk.util.register_publish(tk, context, dest_full_path, dest_base, 1, comment = 'Publish of movie by Scan Ingestion script', published_file_type = 'Movie')
+                        dbpublishmovie = ihdb.publish_for_ingest(dbshot, dest_full_path, dest_base, 'Publish of movie by Scan Ingestion script', 'Movie')
                     except:
-                        log.error("Caught exception when trying to register_publish of plate!")
+                        log.error("Caught exception when trying to publish a movie!")
                         log.error(sys.exc_info()[0])
                         log.error(sys.exc_info()[1])
-                    
+                    log.info('Done.')
                     # upload a thumbnail
                     log.info("Uploading thumbnail for publish.")
                     if dbpublishmovie:
@@ -973,21 +965,17 @@ class ScanIngestWindow(QMainWindow):
                             log.info('Creating a %s task in the database for shot %s.'%(str_final_comp_task_name, u_shot))
                             ihdb.create_task(dbtask)
                     if dbtask:
-                        log.info("Attempting to publish Nuke Script to Shotgun using the Toolkit API...")
-                        context = tk.context_from_entity('Task', int(dbtask.g_dbid))
+                        log.info('Publishing the Nuke script to the database...')
                         nuke_script_base = os.path.splitext(os.path.basename(nuke_script_path))[0]
-                        
-                        sg_publish_name = nuke_script_base.split(config.get(g_ih_show_code, 'version_separator'))[0]
-                        sg_publish_ver = int(nuke_script_base.split(config.get(g_ih_show_code, 'version_separator'))[1])
                         try:
-                            dbpublishnk = sgtk.util.register_publish(tk, context, nuke_script_path, sg_publish_name, sg_publish_ver, comment = 'Initial publish of stub Nuke script by Scan Ingestion script', published_file_type = 'Nuke Script')
+                            dbpublishnk = ihdb.publish_for_shot(self, m_shot_obj, nuke_script_path, 'Initial publish of stub Nuke script by Scan Ingestion script')
                             if basic_thumbnail_path:
                                 ihdb.upload_thumbnail('PublishedFile', dbtask, basic_thumbnail_path, altid = dbpublishnk['id'])
                         except:
-                            log.error("Caught exception when trying to register_publish of plate!")
+                            log.error("Caught exception when trying to publish a Nuke script!")
                             log.error(sys.exc_info()[0])
                             log.error(sys.exc_info()[1])
-                        log.info("Done.")
+                        log.info('Done.')
                 else:
                     log.info('Nuke script already exists at this location.')
                     
