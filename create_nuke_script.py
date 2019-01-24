@@ -125,7 +125,7 @@ if use_hires_stub:
     stub = config.get('shot_template', '%s'%sys.platform)
     cfg_backdrop_node = config.get('shot_template', 'backdrop_node')
     cfg_backdrop_node_write = config.get('shot_template', 'backdrop_node_write')
-    cfg_main_read_node = config.get('shot_template', 'main_read')
+    cfg_main_read_node = config.get('shot_template', 'main_read_node')
     cfg_main_write_node = config.get('shot_template', 'main_write_node')
     cfg_viewer_cc_node = config.get('shot_template', 'viewer_cc_node')
 
@@ -316,7 +316,7 @@ else:
     stub = config.get('shot_template', 'temp_%s'%sys.platform)
     cfg_backdrop_node = config.get('shot_template', 'backdrop_node')
     cfg_backdrop_node_write = config.get('shot_template', 'backdrop_node_write')
-    cfg_main_read_node = config.get('shot_template', 'main_read')
+    cfg_main_read_node = config.get('shot_template', 'main_read_node')
     cfg_main_write_node = config.get('shot_template', 'main_write_node')
 
     if not master_nuke_script:
