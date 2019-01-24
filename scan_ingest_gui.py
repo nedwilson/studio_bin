@@ -894,7 +894,7 @@ class ScanIngestWindow(QMainWindow):
                     dbtasks = ihdb.fetch_tasks_for_shot(dbshot)
                     # create a temp task in the database, if it doesn't already exist
                     if b_temp_shot:
-                        str_temp_comp_task_name = config.get('database', 'temp_comp_task_name')
+                        str_temp_comp_task_name = config.get('scan_ingest', 'temp_comp_task_name')
                         for tmptask in dbtasks:
                             if tmptask.g_task_name == str_temp_comp_task_name:
                                 dbtask = tmptask
@@ -904,7 +904,7 @@ class ScanIngestWindow(QMainWindow):
                             log.info('Creating a %s task in the database for shot %s.'%(str_temp_comp_task_name, u_shot))
                             ihdb.create_task(dbtask)
                     else:
-                        str_final_comp_task_name = config.get('database', 'final_comp_task_name')
+                        str_final_comp_task_name = config.get('scan_ingest', 'final_comp_task_name')
                         for tmptask in dbtasks:
                             if tmptask.g_task_name == str_final_comp_task_name:
                                 dbtask = tmptask
