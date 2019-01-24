@@ -739,7 +739,7 @@ class ScanIngestWindow(QMainWindow):
                                 if scene_re_match:
                                     log.info('Slate %s is a match for scene regular expression.'%slate)
                                     scene_match_dict = scene_re_match.groupdict()
-                                    tmp_scene_number = cfg_scene_number_format%scene_match_dict['number']
+                                    tmp_scene_number = cfg_scene_number_format%int(scene_match_dict['number'])
                                     tmp_scene = cfg_scene_format.format(prefix = scene_match_dict['prefix'], special = scene_match_dict['special'], number = tmp_scene_number)
                                     log.info('Determined scene to be %s.'%tmp_scene)
                                     scene = tmp_scene
