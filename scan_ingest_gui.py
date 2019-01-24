@@ -626,7 +626,30 @@ class ScanIngestWindow(QMainWindow):
             # step 4: publish every shot-related element
             
             basic_thumbnail_path = None
-            
+
+            # EXR metadata keys
+            cfg_exr_metadata_key_scene = config.get('scan_ingest', 'exr_metadata_key_scene')
+            cfg_exr_metadata_key_slate = config.get('scan_ingest', 'exr_metadata_key_slate')
+            cfg_exr_metadata_key_take = config.get('scan_ingest', 'exr_metadata_key_take')
+            cfg_exr_metadata_key_reel_name = config.get('scan_ingest', 'exr_metadata_key_reel_name')
+            cfg_exr_metadata_key_camera = config.get('scan_ingest', 'exr_metadata_key_camera')
+            b_extract_scene_from_slate = False
+            cfg_extract_scene_from_slate = config.get('scan_ingest', 'extract_scene_from_slate')
+            if cfg_extract_scene_from_slate in ['Y', 'y', 'Yes', 'yes', 'YES', 'True', 'true', 'TRUE']:
+                b_extract_scene_from_slate = True
+
+            cfg_scene_regex = re.compile(config.get('scan_ingest', 'scene_regex'))
+            cfg_scene_number_format = config.get('scan_ingest', 'scene_number_format')
+            cfg_scene_format = config.get('scan_ingest', 'scene_format')
+            cfg_take_format = config.get('scan_ingest', 'take_format')
+            cfg_lowercase_camera_name = config.get('scan_ingest', 'lowercase_camera_name')
+            if cfg_lowercase_camera_name in ['Y', 'y', 'Yes', 'yes', 'YES', 'True', 'true', 'TRUE']:
+                b_lowercase_camera_name = True
+            b_extract_take_from_metadata = False
+            cfg_extract_take_from_metadata = config.get('scan_ingest', 'extract_take_from_metadata')
+            if cfg_extract_take_from_metadata in ['Y', 'y', 'Yes', 'yes', 'YES', 'True', 'true', 'TRUE']:
+                b_extract_take_from_metadata = True
+
             for tmp_io in g_ingest_sorted:
             
                 if tmp_io.scope == 'shot' and tmp_io.extension in config.get('scan_ingest', 'lutted_image_exts').split(',') and tmp_io.is_seq:
@@ -668,8 +691,12 @@ class ScanIngestWindow(QMainWindow):
                         clip_name = plate_name
                         scene = ""
                         take = ""
+                        take_number = ""
+                        slate = ""
+                        camera = ""
                         start_file = None
                         start_timecode = 0
+                        b_metadata = False
                         try:
                             start_file = OpenEXR.InputFile(start_file_path)
                             start_timecode = int(start_frame)*1000
@@ -679,9 +706,17 @@ class ScanIngestWindow(QMainWindow):
                             else:
                                 header_fps = float(start_file.header()['framesPerSecond'].n)/float(start_file.header()['framesPerSecond'].d)
                             start_timecode = int((TimeCode("%02d:%02d:%02d:%02d"%(start_tc_obj.hours, start_tc_obj.minutes, start_tc_obj.seconds, start_tc_obj.frame), inputfps=header_fps).frame_number() * 1000) / header_fps)
-                            clip_name = start_file.header()['reelName']
-                            scene = start_file.header()['Scene']
-                            take = start_file.header()['Take']
+                            clip_name = start_file.header()[cfg_exr_metadata_key_reel_name]
+                            scene = start_file.header()[cfg_exr_metadata_key_scene]
+                            take = start_file.header()[cfg_exr_metadata_key_take]
+                            take_number = start_file.header()[cfg_exr_metadata_key_take]
+                            slate = start_file.header()[cfg_exr_metadata_key_slate]
+                            if b_lowercase_camera_name:
+                                camera = start_file.header()[cfg_exr_metadata_key_camera].lower()
+                            else:
+                                camera = start_file.header()[cfg_exr_metadata_key_camera]
+                            # if we have gotten this far without throwing an exception, we can probably assume that there is valid metadata and this is an EXR file
+                            b_metadata = True
                         except KeyError:
                             e = sys.exc_info()
                             log.warning("KeyError: metadata key %s not available in EXR file."%e[1])
@@ -692,6 +727,29 @@ class ScanIngestWindow(QMainWindow):
                         except AttributeError as atte:
                             log.warning("Caught AttributeError when trying to extract header information from EXR file.")
                             log.warning(atte.strerror)
+
+                        # figure out the scene name, take name, etc.
+                        if b_metadata:
+                            log.info('This image sequence contains EXR files that have valid metadata.')
+                            # should we try and extract the scene from the slate?
+                            if b_extract_scene_from_slate:
+                                log.info('Trying to extract the scene name from the slate metadata key.')
+                                tmp_scene = ''
+                                scene_re_match = cfg_scene_regex.search(slate)
+                                if scene_re_match:
+                                    log.info('Slate %s is a match for scene regular expression.'%slate)
+                                    scene_match_dict = scene_re_match.groupdict()
+                                    tmp_scene_number = cfg_scene_number_format%scene_match_dict['number']
+                                    tmp_scene = cfg_scene_format.format(prefix = scene_match_dict['prefix'], special = scene_match_dict['special'], number = tmp_scene_number)
+                                    log.info('Determined scene to be %s.'%tmp_scene)
+                                    scene = tmp_scene
+                                else:
+                                    log.info('Slate %s does not match regular expression %s.'%(slate, cfg_scene_regex.pattern))
+                            if b_extract_take_from_metadata:
+                                log.info('Trying to extract the take name from the metadata.')
+                                tmp_take = cfg_take_format.format(slate = slate, take = take_number, camera = camera)
+                                log.info('Determined take to be %s.'%tmp_take)
+                                take = tmp_take
 
                         end_file = None
                         end_timecode = 0
@@ -707,6 +765,7 @@ class ScanIngestWindow(QMainWindow):
                             log.warning("Image is not in EXR format.")
 
                         dbplate = DB.Plate(plate_name, start_frame, end_frame, duration, plate_path, start_timecode, clip_name, scene, take, end_timecode, dbshot, -1)
+                        dbplate.set_slate(slate)
                         ihdb.create_plate(dbplate)
     
                         # upload a thumbnail for the plate_name

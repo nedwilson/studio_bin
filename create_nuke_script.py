@@ -123,6 +123,12 @@ cdl_full_path = os.path.join(cdl_dir, cdl_file)
 if use_hires_stub:
 
     stub = config.get('shot_template', '%s'%sys.platform)
+    cfg_backdrop_node = config.get('shot_template', 'backdrop_node')
+    cfg_backdrop_node_write = config.get('shot_template', 'backdrop_node_write')
+    cfg_main_read_node = config.get('shot_template', 'main_read')
+    cfg_main_write_node = config.get('shot_template', 'main_write_node')
+    cfg_viewer_cc_node = config.get('shot_template', 'viewer_cc_node')
+
     if not master_nuke_script:
         output_script = full_nuke_script_path
     log.info("Building Nuke Script for final shot from template.")
@@ -131,11 +137,11 @@ if use_hires_stub:
     log.info("About to open: %s"%stub)
     nuke.scriptOpen(stub)
     log.info("Shot template loaded.")
-    bd_node = nuke.toNode("BackdropNode1")
-    bd_node_w = nuke.toNode("BackdropNode2")
-    main_read = nuke.toNode("Read1")
-    main_write = nuke.toNode("Write_exr")
-    main_cdl = nuke.toNode("VIEWER_INPUT.OCIOCDLTransform1")
+    bd_node = nuke.toNode(cfg_backdrop_node)
+    bd_node_w = nuke.toNode(cfg_backdrop_node_write)
+    main_read = nuke.toNode(cfg_main_read_node)
+    main_write = nuke.toNode(cfg_main_write_node)
+    main_cdl = nuke.toNode(cfg_viewer_cc_node)
     
     frames_glob = mainplate.replace(g_write_frame_format, '*')
     frames_list = sorted(glob.glob(frames_glob))
@@ -308,6 +314,11 @@ if use_hires_stub:
 else:
 
     stub = config.get('shot_template', 'temp_%s'%sys.platform)
+    cfg_backdrop_node = config.get('shot_template', 'backdrop_node')
+    cfg_backdrop_node_write = config.get('shot_template', 'backdrop_node_write')
+    cfg_main_read_node = config.get('shot_template', 'main_read')
+    cfg_main_write_node = config.get('shot_template', 'main_write_node')
+
     if not master_nuke_script:
         output_script = temp_full_nuke_script_path
         
@@ -317,10 +328,10 @@ else:
     log.info("About to open: %s"%stub)
     nuke.scriptOpen(stub)
     log.info("Shot template loaded.")
-    bd_node = nuke.toNode("BackdropNode1")
-    bd_node_w = nuke.toNode("BackdropNode2")
-    main_read = nuke.toNode("Read1")
-    main_write = nuke.toNode("Write_exr")
+    bd_node = nuke.toNode(cfg_backdrop_node)
+    bd_node_w = nuke.toNode(cfg_backdrop_node_write)
+    main_read = nuke.toNode(cfg_main_read_node)
+    main_write = nuke.toNode(cfg_main_write_node)
 
     # set the values in the template
     file_base = os.path.splitext(os.path.basename(mainref))[0]
