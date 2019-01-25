@@ -982,7 +982,7 @@ class ScanIngestWindow(QMainWindow):
                         log.info('Publishing the Nuke script to the database...')
                         nuke_script_base = os.path.splitext(os.path.basename(nuke_script_path))[0]
                         try:
-                            dbpublishnk = ihdb.publish_for_shot(self, uniq_shots[u_shot]['dbshot'], nuke_script_path, 'Initial publish of stub Nuke script by Scan Ingestion script')
+                            dbpublishnk = ihdb.publish_for_shot(uniq_shots[u_shot]['dbshot'], nuke_script_path, 'Initial publish of stub Nuke script by Scan Ingestion script')
                             ihdb.upload_thumbnail('PublishedFile', dbtask, d_shot_thumbnail_files[u_shot]['path'], altid = dbpublishnk['id'])
                         except:
                             log.error("Caught exception when trying to publish a Nuke script!")
