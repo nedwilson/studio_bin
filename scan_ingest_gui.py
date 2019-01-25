@@ -401,6 +401,8 @@ class ScanIngestWindow(QMainWindow):
         global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, g_shot_dir_format, g_shot_thumb_dir, g_version_separator, g_version_format, g_cdl_file_ext
         self.hide()
         self.results_window.show()
+        # dictionary object for thumbnails
+        d_shot_thumbnail_files = {}
         default_ccobj = CCData()
         default_ccfile_from_cfg = config.get(g_ih_show_code, 'default_cc_%s'%sys.platform)
         if g_cdl_file_ext != 'cube':
@@ -656,8 +658,6 @@ class ScanIngestWindow(QMainWindow):
 
                     # grab a toolkit object from the shot entity
                     dbshot = tmp_io.parent_dbobject
-                    tk = sgtk.sgtk_from_entity('Shot', int(dbshot.g_dbid))
-
                     # retrive object from database for plate
                     dest_full_path = os.path.join(tmp_io.dest_dir, tmp_io.dest_name)
                     imgseq_match = re.search(imgseq_regexp, tmp_io.dest_name)
@@ -773,7 +773,7 @@ class ScanIngestWindow(QMainWindow):
                         generated_thumb_path = thumbnails.create_thumbnail(thumb_frame_path)
                         ihdb.upload_thumbnail('Plate', dbplate, generated_thumb_path)
                         log.info("Uploaded thumbnail %s to DB plate object %s."%(generated_thumb_path, dbplate.g_plate_name))
-    
+
                         # publish the plate using the toolkit API
                         log.info('Publishing this plate to the database...')
                         dbpublishplate = None
@@ -788,9 +788,16 @@ class ScanIngestWindow(QMainWindow):
                             log.info("Uploading thumbnail for publish.")
                             ihdb.upload_thumbnail('PublishedFile', dbplate, generated_thumb_path, altid = dbpublishplate['id'])
                         basic_thumbnail_path = generated_thumb_path
+                        try:
+                            tmp_thumb = d_shot_thumbnail_files[dbshot.g_shot_code]
+                            if tmp_io.is_mainplate:
+                                d_shot_thumbnail_files[dbshot.g_shot_code] = { 'path' : generated_thumb_path, 'hires_src' : True, 'mainplate' : True }
+                        except KeyError:
+                            d_shot_thumbnail_files[dbshot.g_shot_code] = { 'path' : generated_thumb_path, 'hires_src' : True, 'mainplate' : tmp_io.is_mainplate }
 
                         # upload a thumbnail for the plate to the shot, in the event that this is a new shot
-                        if b_new_shot_thumb:
+                        if b_new_shot_thumb and tmp_io.is_mainplate:
+                            shutil.copyfile(generated_thumb_path, thumbnails.get_thumbnail_for_shot(dbshot.g_shot_code))
                             ihdb.upload_thumbnail('Shot', dbshot, generated_thumb_path)
                             log.info("Uploaded thumbnail %s to DB shot object %s."%(generated_thumb_path, dbshot.g_shot_code))
                             uniq_shots[tmp_io.parent_name]['new_shot'] = False
@@ -803,9 +810,7 @@ class ScanIngestWindow(QMainWindow):
             
                 if tmp_io.scope == 'shot' and tmp_io.extension in config.get('scan_ingest', 'movie_exts').split(','):
                            
-                    # grab a toolkit object from the shot entity
                     dbshot = tmp_io.parent_dbobject
-                    tk = sgtk.sgtk_from_entity('Shot', int(dbshot.g_dbid))
 
                     # retrive object from database for plate
                     dest_full_path = os.path.join(tmp_io.dest_dir, tmp_io.dest_name)
@@ -840,8 +845,17 @@ class ScanIngestWindow(QMainWindow):
                     if not basic_thumbnail_path:
                         basic_thumbnail_path = generated_thumb_path
 
+                    try:
+                        tmp_thumb = d_shot_thumbnail_files[dbshot.g_shot_code]
+                        if not tmp_thumb['hires_src']:
+                            if tmp_io.is_mainplate:
+                                d_shot_thumbnail_files[dbshot.g_shot_code] = { 'path' : generated_thumb_path, 'hires_src' : False, 'mainplate' : True }
+                    except KeyError:
+                        d_shot_thumbnail_files[dbshot.g_shot_code] = { 'path' : generated_thumb_path, 'hires_src' : False, 'mainplate' : tmp_io.is_mainplate }
+
                     # upload a thumbnail for the plate to the shot, in the event that this is a new shot
-                    if b_new_shot_thumb:
+                    if b_new_shot_thumb and tmp_io.is_mainplate:
+                        shutil.copyfile(generated_thumb_path, thumbnails.get_thumbnail_for_shot(dbshot.g_shot_code))
                         ihdb.upload_thumbnail('Shot', dbshot, generated_thumb_path)
                         log.info("Uploaded thumbnail %s to DB shot object %s."%(generated_thumb_path, dbshot.g_shot_code))
                         uniq_shots[tmp_io.parent_name]['new_shot'] = False
@@ -968,9 +982,8 @@ class ScanIngestWindow(QMainWindow):
                         log.info('Publishing the Nuke script to the database...')
                         nuke_script_base = os.path.splitext(os.path.basename(nuke_script_path))[0]
                         try:
-                            dbpublishnk = ihdb.publish_for_shot(self, m_shot_obj, nuke_script_path, 'Initial publish of stub Nuke script by Scan Ingestion script')
-                            if basic_thumbnail_path:
-                                ihdb.upload_thumbnail('PublishedFile', dbtask, basic_thumbnail_path, altid = dbpublishnk['id'])
+                            dbpublishnk = ihdb.publish_for_shot(self, uniq_shots[u_shot]['dbshot'], nuke_script_path, 'Initial publish of stub Nuke script by Scan Ingestion script')
+                            ihdb.upload_thumbnail('PublishedFile', dbtask, d_shot_thumbnail_files[u_shot]['path'], altid = dbpublishnk['id'])
                         except:
                             log.error("Caught exception when trying to publish a Nuke script!")
                             log.error(sys.exc_info()[0])
