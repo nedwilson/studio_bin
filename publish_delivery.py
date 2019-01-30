@@ -12,6 +12,7 @@ parser.add_argument('--noemail', help='Will not sync or send email', action='sto
 parser.add_argument('--matte', help='Creates a matte delivery', action='store_true')
 parser.add_argument('--combined', help='Delivers both high resolution and movie files', action='store_true')
 parser.add_argument('--playlistonly', help='Only creates a playlist in the database, does not actually perform the submission or copy data', action='store_true')
+parser.add_argument('--deliveryonly', help='Assumes that you have already reviewed shots, and want to copy media and send email. Allows user to pick from a list of playlists.', action='store_true')
 args = parser.parse_args()
 
 b_gui = False
@@ -21,6 +22,7 @@ b_email = True
 b_matte = False
 b_combined = False
 b_playlistonly = False
+b_deliveryonly = False
 
 if args.gui:
     b_gui = True
@@ -48,6 +50,11 @@ if args.playlistonly:
     b_playlistonly = True
     print "INFO: Setting playlist only to true - will only build a playlist for this submission, will not copy data or actually build the submisson."
 
+if args.deliveryonly:
+    b_deliveryonly = True
+    b_playlistonly = False
+    print("INFO: Setting delivery only to true - will display a list of available playlists. Please pick one to deliver to production.")
+
 if args.matte:
     b_matte = True
     b_hires = False
@@ -56,8 +63,8 @@ if args.matte:
 delivery.globals_from_config()
 
 if b_gui:
-    delivery.display_window(m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined, m_playlistonly=b_playlistonly)
+    delivery.display_window(m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined, m_playlistonly=b_playlistonly, m_deliveryonly=b_deliveryonly)
 else:
-    delivery.execute_shell(m_interactive=b_interactive, m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined, m_playlistonly=b_playlistonly)
+    delivery.execute_shell(m_interactive=b_interactive, m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined, m_playlistonly=b_playlistonly, m_deliveryonly=b_deliveryonly)
 
     
