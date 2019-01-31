@@ -4,15 +4,19 @@ import argparse
 import delivery
 import sys
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--gui', help='Launches the GUI version of the application', action='store_true')
-parser.add_argument('--hires', help='Creates a hi-resolution delivery instead of a Quicktime-only delivery', action='store_true')
-parser.add_argument('--interactive', help='Will prompt the user for version removal in the Terminal', action='store_true')
-parser.add_argument('--noemail', help='Will not sync or send email', action='store_true')
-parser.add_argument('--matte', help='Creates a matte delivery', action='store_true')
-parser.add_argument('--combined', help='Delivers both high resolution and movie files', action='store_true')
-parser.add_argument('--playlistonly', help='Only creates a playlist in the database, does not actually perform the submission or copy data', action='store_true')
-parser.add_argument('--deliveryonly', help='Assumes that you have already reviewed shots, and want to copy media and send email. Allows user to pick from a list of playlists.', action='store_true')
+parser = argparse.ArgumentParser(description='Command-line Python Tool that creates delivery packages and sends them to production.')
+parser.add_argument('-g', '--gui', help='Launches the GUI version of the application', action='store_true')
+parser.add_argument('-i', '--interactive', help='Will prompt the user for version removal in the Terminal', action='store_true')
+parser.add_argument('-n', '--noemail', help='Will not sync or send email', action='store_true')
+pkg_type_group = parser.add_mutually_exclusive_group()
+pkg_type_group.add_argument('-r', '--hires', help='Creates a hi-resolution delivery instead of a Quicktime-only delivery', action='store_true')
+pkg_type_group.add_argument('-m', '--matte', help='Creates a matte delivery', action='store_true')
+pkg_type_group.add_argument('-c', '--combined', help='Delivers both high resolution and movie files', action='store_true')
+two_step_delivery_group = parser.add_mutually_exclusive_group()
+two_step_delivery_group.add_argument('-p', '--playlistonly', help='Only creates a playlist in the database, does not actually perform the submission or copy data', action='store_true')
+two_step_delivery_group.add_argument('-d', '--deliveryonly', help='Assumes that you have already reviewed shots, and want to copy media and send email. Allows user to pick from a list of playlists.', action='store_true')
+# deliver a specific playlist?
+parser.add_argument('-l', '--playlist', help='Deliver this specific playlist to production, do not pick from a list of playlists.')
 args = parser.parse_args()
 
 b_gui = False
@@ -23,6 +27,7 @@ b_matte = False
 b_combined = False
 b_playlistonly = False
 b_deliveryonly = False
+s_hero_playlist = None
 
 if args.gui:
     b_gui = True
@@ -59,12 +64,15 @@ if args.matte:
     b_matte = True
     b_hires = False
     print "INFO: Building a matte delivery."
-    
+
+if args.playlist:
+    s_hero_playlist = args.playlist
+
 delivery.globals_from_config()
 
 if b_gui:
-    delivery.display_window(m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined, m_playlistonly=b_playlistonly, m_deliveryonly=b_deliveryonly)
+    delivery.display_window(m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined, m_playlistonly=b_playlistonly, m_deliveryonly=b_deliveryonly, m_hero_playlist=s_hero_playlist)
 else:
-    delivery.execute_shell(m_interactive=b_interactive, m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined, m_playlistonly=b_playlistonly, m_deliveryonly=b_deliveryonly)
+    delivery.execute_shell(m_interactive=b_interactive, m_2k=b_hires, send_email=b_email, m_matte=b_matte, m_combined=b_combined, m_playlistonly=b_playlistonly, m_deliveryonly=b_deliveryonly, m_hero_playlist=s_hero_playlist)
 
     
