@@ -154,7 +154,7 @@ def get_credentials():
     store = oauth2client.file.Storage(credential_path)
     credentials = store.get()
     if not credentials or credentials.invalid:
-        flow = client.flow_from_clientsecrets(os.path.join(g_credentials_dir, g_client_secret), g_gmail_scopes)
+        flow = client.flow_from_clientsecrets(g_client_secret, g_gmail_scopes)
         flow.user_agent = g_application_name
         credentials = tools.run_flow(flow, store)
         log.info('Storing credentials to ' + credential_path)
