@@ -49,6 +49,7 @@ g_email_text = ""
 g_rsync_enabled = False
 g_rsync_filetypes = []
 g_rsync_dest = ""
+g_subform_file_format = 'xlsx'
 
 log = None
 
@@ -77,7 +78,7 @@ def globals_from_config():
     consoleHandler.setFormatter(logFormatter)
     log.addHandler(consoleHandler)    
     
-    global g_ih_show_cfg_path, g_ih_show_root, g_ih_show_code, g_config
+    global g_ih_show_cfg_path, g_ih_show_root, g_ih_show_code, g_config, g_subform_file_format
     global g_distro_list_to, g_distro_list_cc, g_mail_from, g_write_ale, g_shared_root, g_credentials_dir, g_client_secret, g_gmail_creds, g_application_name, g_email_text, g_rsync_enabled, g_rsync_filetypes, g_rsync_dest
     try:
         g_ih_show_code = os.environ['IH_SHOW_CODE']
@@ -99,6 +100,7 @@ def globals_from_config():
         g_rsync_enabled = True if g_config.get(g_ih_show_code, 'delivery_rsync_enabled') == 'yes' else False
         g_rsync_filetypes = g_config.get(g_ih_show_code, 'delivery_rsync_filetypes').split(',')
         g_rsync_dest = g_config.get(g_ih_show_code, 'delivery_rsync_dest')
+        g_subform_file_format = g_config.get('delivery', 'subform_file_format')
         log.info("Globals initiliazed from config %s."%g_ih_show_cfg_path)
     except KeyError:
         e = sys.exc_info()
@@ -245,14 +247,14 @@ def createMessageWithAttachment(sender, to, cc, subject, msgHtml, msgPlain, atta
 # builds the body of the email message
 def send_email(delivery_directory, file_list, shot_count):
 
-    global g_rsync_dest, g_email_text, g_mail_from, g_distro_list_to, g_distro_list_cc, g_config
+    global g_rsync_dest, g_email_text, g_mail_from, g_distro_list_to, g_distro_list_cc, g_config, g_subform_file_format
     formatted_list= "\n".join(file_list)
 
     final_destination_dir = os.path.join(g_rsync_dest, os.path.split(delivery_directory)[-1])
     	
     d_email_text = {'shot_count' : shot_count, 'delivery_folder' : final_destination_dir, 'shot_list' : formatted_list, 'package' : os.path.split(delivery_directory)[-1]}
     msg = g_email_text.format(**d_email_text).replace('\\r', '\r')
-    csvfiles = glob.glob(os.path.join(delivery_directory, '*.csv'))
+    csvfiles = glob.glob(os.path.join(delivery_directory, '*.%s'%g_subform_file_format))
     d_email_subject = {'package' : os.path.split(delivery_directory)[-1]}
     s_subject = g_config.get('email', 'subject').format(**d_email_subject)
     
@@ -277,8 +279,9 @@ if __name__ == "__main__":
                 package_dir = tmp_config.get('delivery', 'source_folder')
                 file_list = tmp_config.get('delivery', 'file_list').split(',')
                 file_count = len(file_list)
-                log.info("About to call handle_rsync(%s)"%package_dir)
-                handle_rsync(package_dir)
+                if g_rsync_enabled:
+                    log.info("About to call handle_rsync(%s)"%package_dir)
+                    handle_rsync(package_dir)
                 log.info("About to call send_email(%s, %s, %s)"%(package_dir, file_list, file_count))
                 send_email(package_dir, file_list, file_count)
             except:
