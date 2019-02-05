@@ -451,6 +451,8 @@ class ScanIngestWindow(QMainWindow):
                     log.info("Default color correction file: %s"%default_cc_file)
                     if g_cdl_file_ext == 'cube':
                         shutil.copyfile(default_ccfile_from_cfg, default_cc_file)
+                        log.info('%s: %s -> %s' % ('copy', default_ccfile_from_cfg, default_cc_file))
+
                     else:
                         default_ccobj.get_write_function(ccext)(default_cc_file)
                     self.results_window.delivery_results.appendPlainText("INFO: Added default color correction file at %s."%default_cc_file)
@@ -500,7 +502,7 @@ class ScanIngestWindow(QMainWindow):
                             frame = int(element_regexp_match.group(3))
                             dest_full_path = destination_display_path%frame
                             if not os.path.exists(dest_full_path):
-                                log.debug('%s: %s -> %s'%(file_operation, source_file, dest_full_path))
+                                log.info('%s: %s -> %s'%(file_operation, source_file, dest_full_path))
                                 if file_operation == "hardlink":
                                     os.link(source_file, dest_full_path)
                                 elif file_operation == "copy":
@@ -521,6 +523,7 @@ class ScanIngestWindow(QMainWindow):
                             os.link(tmp_io.full_name, ddp)
                         elif file_operation == "copy":
                             shutil.copyfile(tmp_io.full_name, ddp)
+                            log.info('%s: %s -> %s' % ('copy', tmp_io.full_name, ddp))
                     log.info('Done.')
                     self.results_window.delivery_results.appendPlainText("INFO: Done.")
                     QApplication.processEvents()
@@ -535,7 +538,7 @@ class ScanIngestWindow(QMainWindow):
                             default_cc_file = os.path.join(tmp_io.dest_dir, '%s.%s' % (tmp_io.parent_name, ccext))
                             if tmp_io.extension == 'cube':
                                 log.info('This cube file has been flagged as a Main Plate. Will make the shot default cube file from it.')
-                                log.debug('%s: %s -> %s'%(file_operation, tmp_io.full_name, default_cc_file))
+                                log.info('%s: %s -> %s'%(file_operation, tmp_io.full_name, default_cc_file))
                                 if file_operation == "hardlink":
                                     os.link(tmp_io.full_name, default_cc_file)
                                 elif file_operation == "copy":
@@ -798,6 +801,7 @@ class ScanIngestWindow(QMainWindow):
                         # upload a thumbnail for the plate to the shot, in the event that this is a new shot
                         if b_new_shot_thumb and tmp_io.is_mainplate:
                             shutil.copyfile(generated_thumb_path, thumbnails.get_thumbnail_for_shot(dbshot.g_shot_code))
+                            log.info('%s: %s -> %s' % ('copy', generated_thumb_path, thumbnails.get_thumbnail_for_shot(dbshot.g_shot_code)))
                             ihdb.upload_thumbnail('Shot', dbshot, generated_thumb_path)
                             log.info("Uploaded thumbnail %s to DB shot object %s."%(generated_thumb_path, dbshot.g_shot_code))
                             uniq_shots[tmp_io.parent_name]['new_shot'] = False
@@ -837,6 +841,7 @@ class ScanIngestWindow(QMainWindow):
                         log.error("Caught exception when trying to publish a movie!")
                         log.error(sys.exc_info()[0])
                         log.error(sys.exc_info()[1])
+                        log.error(traceback.format_exc(sys.exc_info()[2]))
                     log.info('Done.')
                     # upload a thumbnail
                     log.info("Uploading thumbnail for publish.")
@@ -856,6 +861,7 @@ class ScanIngestWindow(QMainWindow):
                     # upload a thumbnail for the plate to the shot, in the event that this is a new shot
                     if b_new_shot_thumb and tmp_io.is_mainplate:
                         shutil.copyfile(generated_thumb_path, thumbnails.get_thumbnail_for_shot(dbshot.g_shot_code))
+                        log.info('%s: %s -> %s' % ('copy', generated_thumb_path, thumbnails.get_thumbnail_for_shot(dbshot.g_shot_code)))
                         ihdb.upload_thumbnail('Shot', dbshot, generated_thumb_path)
                         log.info("Uploaded thumbnail %s to DB shot object %s."%(generated_thumb_path, dbshot.g_shot_code))
                         uniq_shots[tmp_io.parent_name]['new_shot'] = False
