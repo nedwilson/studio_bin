@@ -852,7 +852,7 @@ class ScanIngestWindow(QMainWindow):
 
                     # retrive object from database for plate
                     dest_full_path = os.path.join(tmp_io.dest_dir, tmp_io.dest_name)
-                    dest_base = os.path.basename(tmp_io.dest_name)
+                    dest_base = os.path.splitext(os.path.basename(tmp_io.dest_name))[0]
                     b_new_shot_thumb = False
 
                     if uniq_shots[tmp_io.parent_name]['new_shot']:
@@ -909,10 +909,12 @@ class ScanIngestWindow(QMainWindow):
                     b_thumb_ul = False
                     for tmp_thumb_path in glob.glob(plate_thumb_glob):
                         plate_thumb_path = tmp_thumb_path
+                        log.info('Located thumbnail for Version %s: %s'%(dest_base, plate_thumb_path))
                     if not plate_thumb_path:
                         plate_thumb_glob = os.path.join(shot_thumb_dir, '%s_thumb.*.png' % (dest_base))
                         for tmp_thumb_path in glob.glob(plate_thumb_glob):
                             plate_thumb_path = tmp_thumb_path
+                            log.info('Located thumbnail for Version %s: %s' % (dest_base, plate_thumb_path))
 
                     dbversion = ihdb.fetch_version(dest_base, dbshot)
                     if not dbversion:
@@ -920,18 +922,22 @@ class ScanIngestWindow(QMainWindow):
                         dbversion.set_status('vwd')
                         dbversion.set_version_type('Reference')
                         ihdb.create_version(dbversion)
+                        log.info('Successfully created new Version %s in the database with ID %d.'%(dbversion.g_version_code, dbversion.g_dbid))
                         b_thumb_ul = True
                     else:
                         dbversion.g_description = 'Quicktime Version from Scan Ingest'
                         dbversion.g_path_to_movie = dest_full_path
                         dbversion.set_status('vwd')
                         ihdb.update_version(dbversion)
+                        log.info('Successfully updated existing Version %s in the database with ID %d.' % (
+                        dbversion.g_version_code, dbversion.g_dbid))
                     log.info(
                         "Got version %s object from database with ID of %s." % (dbversion.g_version_code, dbversion.g_dbid))
                     self.results_window.delivery_results.appendPlainText(
                         'INFO: Got version %s for shot %s.' % (dbversion.g_version_code, dbshot.g_shot_code))
                     QApplication.processEvents()
                     if plate_thumb_path and b_thumb_ul:
+                        log.info('Will upload thumbnail %s for version %s'%(plate_thumb_path, dbversion.g_version_code))
                         ihdb.upload_thumbnail('Version', dbversion, plate_thumb_path)
                         log.info(
                             "Uploaded thumbnail for version %s." % (dbversion.g_version_code))
