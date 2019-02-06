@@ -848,6 +848,7 @@ class ScanIngestWindow(QMainWindow):
                 if tmp_io.scope == 'shot' and tmp_io.extension in config.get('scan_ingest', 'movie_exts').split(','):
                            
                     dbshot = tmp_io.parent_dbobject
+                    shot_thumb_dir = os.path.join(tmp_io.parent_wd, g_shot_thumb_dir.format(pathsep=os.path.sep))
 
                     # retrive object from database for plate
                     dest_full_path = os.path.join(tmp_io.dest_dir, tmp_io.dest_name)
