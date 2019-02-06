@@ -665,8 +665,10 @@ class ScanIngestWindow(QMainWindow):
                     dest_full_path = os.path.join(tmp_io.dest_dir, tmp_io.dest_name)
                     imgseq_match = re.search(imgseq_regexp, tmp_io.dest_name)
                     dest_base = ""
+                    dest_ext = ""
                     if imgseq_match:
                         dest_base = imgseq_match.group('base')
+                        dest_ext = imgseq_match.group('ext')
                     else:
                         raise ValueError('Ingest object %s does not match image sequence regexp!'%tmp_io.dest_name)
                     
@@ -808,7 +810,38 @@ class ScanIngestWindow(QMainWindow):
 
                     log.info("Got plate %s object from database with ID of %s."%(dbplate.g_plate_name, dbplate.g_dbid))
                     self.results_window.delivery_results.appendPlainText('INFO: Published plate %s for shot %s.'%(dbplate.g_plate_name, dbshot.g_shot_code))
+
+                    # make a version in the database for this shot
+                    plate_thumb_glob = os.path.join(shot_thumb_dir, '%s_thumb.*.png'%(dest_base))
+                    plate_thumb_path = None
+                    for tmp_thumb_path in glob.glob(plate_thumb_glob):
+                        plate_thumb_path = tmp_thumb_path
+
+                    dbversion = ihdb.fetch_version(dest_base, dbshot)
+                    if not dbversion:
+                        dbversion = DB.Version(dest_base, -1, 'Element Version from Scan Ingest', dbplate.g_start_frame, dbplate.g_end_frame, dbplate.g_duration, dbplate.g_filesystem_path, None, dbshot, None, None)
+                        dbversion.set_status('vwd')
+                        dbversion.set_version_type('Scan')
+                        ihdb.create_version(dbversion)
+                    else:
+                        dbversion.g_description = 'Element Version from Scan Ingest'
+                        dbversion.g_path_to_frames = dbplate.g_filesystem_path
+                        dbversion.set_status('vwd')
+                        dbversion.set_version_type('Scan')
+                        ihdb.update_version(dbversion)
+                    log.info(
+                        "Got version %s object from database with ID of %s." % (dbversion.g_version_code, dbversion.g_dbid))
+                    self.results_window.delivery_results.appendPlainText(
+                        'INFO: Got version %s for shot %s.' % (dbversion.g_version_code, dbshot.g_shot_code))
                     QApplication.processEvents()
+                    if plate_thumb_path:
+                        ihdb.upload_thumbnail('Version', dbversion, plate_thumb_path)
+                        log.info(
+                            "Uploaded thumbnail for version %s." % (dbversion.g_version_code))
+                        self.results_window.delivery_results.appendPlainText(
+                            'INFO: Uploaded thumbnail for version %s.' % (dbversion.g_version_code))
+                        QApplication.processEvents()
+
 
             for tmp_io in g_ingest_sorted:
             
@@ -868,6 +901,39 @@ class ScanIngestWindow(QMainWindow):
 
                     self.results_window.delivery_results.appendPlainText('INFO: Published movie %s for shot %s.'%(dest_base, dbshot.g_shot_code))
                     QApplication.processEvents()
+
+                    # make a version in the database for this shot
+                    plate_thumb_glob = os.path.join(shot_thumb_dir, '%s_movie_thumb.*.png'%(dest_base))
+                    plate_thumb_path = None
+                    b_thumb_ul = False
+                    for tmp_thumb_path in glob.glob(plate_thumb_glob):
+                        plate_thumb_path = tmp_thumb_path
+
+                    dbversion = ihdb.fetch_version(dest_base, dbshot)
+                    if not dbversion:
+                        dbversion = DB.Version(dest_base, -1, 'Quicktime Version from Scan Ingest', tmp_io.start_frame, tmp_io.end_frame, tmp_io.start_frame, None, dest_full_path, dbshot, None, None)
+                        dbversion.set_status('vwd')
+                        dbversion.set_version_type('Reference')
+                        ihdb.create_version(dbversion)
+                        b_thumb_ul = True
+                    else:
+                        dbversion.g_description = 'Quicktime Version from Scan Ingest'
+                        dbversion.g_path_to_movie = dest_full_path
+                        dbversion.set_status('vwd')
+                        ihdb.update_version(dbversion)
+                    log.info(
+                        "Got version %s object from database with ID of %s." % (dbversion.g_version_code, dbversion.g_dbid))
+                    self.results_window.delivery_results.appendPlainText(
+                        'INFO: Got version %s for shot %s.' % (dbversion.g_version_code, dbshot.g_shot_code))
+                    QApplication.processEvents()
+                    if plate_thumb_path and b_thumb_ul:
+                        ihdb.upload_thumbnail('Version', dbversion, plate_thumb_path)
+                        log.info(
+                            "Uploaded thumbnail for version %s." % (dbversion.g_version_code))
+                        self.results_window.delivery_results.appendPlainText(
+                            'INFO: Uploaded thumbnail for version %s.' % (dbversion.g_version_code))
+                        QApplication.processEvents()
+
                     
             # step 5: create a stub Nuke script, if none exists
             for u_shot in uniq_shots.keys():
