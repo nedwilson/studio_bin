@@ -20,6 +20,7 @@ import subprocess
 import sgtk
 import OpenEXR
 import thumbnails
+import datetime
 
 import db_access as DB
 from ccdata import CCData
@@ -58,6 +59,80 @@ consoleHandler = logging.StreamHandler()
 consoleHandler.setFormatter(logFormatter)
 log.addHandler(consoleHandler)    
 
+def get_ingest_playlist_object():
+    """
+    returns a new Playlist object to add all ingested versions into
+    :rtype: Playlist
+    """
+    global config, ihdb, g_ih_show_code
+    vendor_code = config.get('delivery', 'vendor_code')
+    project_code = config.get(g_ih_show_code, 'project_code')
+    b_use_global_serial = False
+    if config.get('delivery', 'use_global_serial') in ['Yes', 'yes', 'YES', 'Y', 'y', 'True', 'TRUE', 'true']:
+        b_use_global_serial = True
+
+    b_use_alphabetical_serial = False
+    try:
+        if config.get('delivery', 'use_alphabetical_serial') in ['Yes', 'yes', 'YES', 'Y', 'y', 'True', 'TRUE', 'true']:
+            b_use_alphabetical_serial = True
+    # most likely use_alphabetical_serial isn't defined in this show's config file
+    except:
+        pass
+
+    delivery_serial = 0
+
+    if not b_use_alphabetical_serial:
+        delivery_serial = int(config.get('delivery', 'serial_start'))
+    else:
+        delivery_serial = config.get('delivery', 'serial_start')
+    date_format = config.get('delivery', 'date_format')
+    today = datetime.date.today().strftime(date_format)
+
+    matching_playlists = []
+    l_tmp_playlists = ihdb.fetch_playlists_timeframe()
+    l_tmp_playlist_names = []
+    for o_tmp_playlist in l_tmp_playlists:
+        l_tmp_playlist_names.append(o_tmp_playlist.g_playlist_name)
+    matching_playlists = sorted(l_tmp_playlist_names)
+
+    playlist_re_text = config.get('scan_ingest', 'ingest_playlist_name_regexp')
+    playlist_re = re.compile(playlist_re_text)
+
+    max_serial = delivery_serial
+
+    if len(matching_playlists) > 0:
+        for suspect_playlist in matching_playlists:
+            playlist_match = playlist_re.search(suspect_playlist)
+            if playlist_match:
+                playlist_match_dict = playlist_match.groupdict()
+                if b_use_global_serial:
+                    if b_use_alphabetical_serial:
+                        if ord(playlist_match_dict['serial']) > ord(max_serial):
+                            max_serial = playlist_match_dict['serial']
+                    else:
+                        if int(playlist_match_dict['serial']) > max_serial:
+                            max_serial = int(playlist_match_dict['serial'])
+                else:
+                    if playlist_match_dict['date'] == today:
+                        if b_use_alphabetical_serial:
+                            if ord(playlist_match_dict['serial']) > ord(max_serial):
+                                max_serial = playlist_match_dict['serial']
+                        else:
+                            if int(playlist_match_dict['serial']) > max_serial:
+                                max_serial = int(playlist_match_dict['serial'])
+    new_serial = ''
+    if b_use_alphabetical_serial:
+        new_serial = chr(ord(max_serial) + 1)
+    else:
+        new_serial = str(max_serial + 1)
+    d_playlist_format = {'vendor_code': vendor_code,
+                         'project_code': project_code,
+                         'date': today,
+                         'serial': new_serial}
+    playlist_name = config.get('scan_ingest', 'ingest_playlist_name_format').format(**d_playlist_format)
+    playlist_object = DB.Playlist(playlist_name, [], -1)
+    return playlist_object
+
 # uses mediainfo binary (need homebrew/mediainfo for this to work) to return info about a Quicktime
 def quicktime_mediainfo(mov_path):
     d_mediainfo = {}
@@ -90,10 +165,10 @@ def read_csv_string(parse_string):
 
 # basic command line usage
 def usage():
-    print ""
-    print "scan_ingest_gui.py PATH_TO_FOLDER"
-    print ""
-    print "Where PATH_TO_FOLDER is a path to a directory that contains images, color correction files, PDF files, etc."
+    print()
+    print('scan_ingest_gui.py PATH_TO_FOLDER')
+    print()
+    print('Where PATH_TO_FOLDER is a path to a directory that contains images, color correction files, PDF files, etc.')
 
 # this function only used if preserve case is specified
 def do_nothing(str_value):
@@ -398,7 +473,9 @@ class ScanIngestWindow(QMainWindow):
         QCoreApplication.instance().quit()
 
     def process_ingest(self):
-        global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, g_shot_dir_format, g_shot_thumb_dir, g_version_separator, g_version_format, g_cdl_file_ext
+        global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, \
+            g_shot_dir_format, g_shot_thumb_dir, g_version_separator, g_version_format, g_cdl_file_ext, \
+            g_ih_show_cfg_path
         self.hide()
         self.results_window.show()
         # dictionary object for thumbnails
@@ -655,6 +732,14 @@ class ScanIngestWindow(QMainWindow):
             if cfg_extract_take_from_metadata in ['Y', 'y', 'Yes', 'yes', 'YES', 'True', 'true', 'TRUE']:
                 b_extract_take_from_metadata = True
 
+            l_versions = []
+            b_create_playlist = False
+            try:
+                if config.get('scan_ingest', 'build_playlist_on_ingest') in ['Yes', 'YES', 'yes', 'Y', 'y', 'True', 'true', 'TRUE']:
+                    b_create_playlist = True
+            except ConfigParser.NoOptionError:
+                log.warning('Show config file %s does not have a build_playlist_on_ingest option in section scan_ingest.'%g_ih_show_cfg_path)
+
             for tmp_io in g_ingest_sorted:
             
                 if tmp_io.scope == 'shot' and tmp_io.extension in config.get('scan_ingest', 'lutted_image_exts').split(',') and tmp_io.is_seq:
@@ -833,6 +918,7 @@ class ScanIngestWindow(QMainWindow):
                         "Got version %s object from database with ID of %s." % (dbversion.g_version_code, dbversion.g_dbid))
                     self.results_window.delivery_results.appendPlainText(
                         'INFO: Got version %s for shot %s.' % (dbversion.g_version_code, dbshot.g_shot_code))
+                    l_versions.append(dbversion)
                     QApplication.processEvents()
                     if plate_thumb_path:
                         ihdb.upload_thumbnail('Version', dbversion, plate_thumb_path)
@@ -935,6 +1021,7 @@ class ScanIngestWindow(QMainWindow):
                         "Got version %s object from database with ID of %s." % (dbversion.g_version_code, dbversion.g_dbid))
                     self.results_window.delivery_results.appendPlainText(
                         'INFO: Got version %s for shot %s.' % (dbversion.g_version_code, dbshot.g_shot_code))
+                    l_versions.append(dbversion)
                     QApplication.processEvents()
                     if plate_thumb_path and b_thumb_ul:
                         log.info('Will upload thumbnail %s for version %s'%(plate_thumb_path, dbversion.g_version_code))
@@ -945,7 +1032,16 @@ class ScanIngestWindow(QMainWindow):
                             'INFO: Uploaded thumbnail for version %s.' % (dbversion.g_version_code))
                         QApplication.processEvents()
 
-                    
+            # step 4a: create a playlist in the database, if this is enabled in the config
+            if b_create_playlist:
+                new_playlist_obj = get_ingest_playlist_object()
+                new_playlist_obj.g_playlist_versions = l_versions
+                ihdb.create_playlist(new_playlist_obj)
+                log.info('Created playlist %s in database with ID %d.'%(new_playlist_obj.g_playlist_name, new_playlist_obj.g_dbid))
+                self.results_window.delivery_results.appendPlainText('INFO: Created playlist %s in database with ID %d.' % (
+                new_playlist_obj.g_playlist_name, new_playlist_obj.g_dbid))
+                QApplication.processEvents()
+
             # step 5: create a stub Nuke script, if none exists
             for u_shot in uniq_shots.keys():
             
