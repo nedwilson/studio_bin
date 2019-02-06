@@ -908,6 +908,10 @@ class ScanIngestWindow(QMainWindow):
                     b_thumb_ul = False
                     for tmp_thumb_path in glob.glob(plate_thumb_glob):
                         plate_thumb_path = tmp_thumb_path
+                    if not plate_thumb_path:
+                        plate_thumb_glob = os.path.join(shot_thumb_dir, '%s_thumb.*.png' % (dest_base))
+                        for tmp_thumb_path in glob.glob(plate_thumb_glob):
+                            plate_thumb_path = tmp_thumb_path
 
                     dbversion = ihdb.fetch_version(dest_base, dbshot)
                     if not dbversion:
