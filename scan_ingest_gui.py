@@ -1034,12 +1034,18 @@ class ScanIngestWindow(QMainWindow):
 
             # step 4a: create a playlist in the database, if this is enabled in the config
             if b_create_playlist:
-                new_playlist_obj = get_ingest_playlist_object()
-                new_playlist_obj.g_playlist_versions = l_versions
-                ihdb.create_playlist(new_playlist_obj)
-                log.info('Created playlist %s in database with ID %d.'%(new_playlist_obj.g_playlist_name, new_playlist_obj.g_dbid))
-                self.results_window.delivery_results.appendPlainText('INFO: Created playlist %s in database with ID %d.' % (
-                new_playlist_obj.g_playlist_name, new_playlist_obj.g_dbid))
+                if len(l_versions) > 0:
+                    new_playlist_obj = get_ingest_playlist_object()
+                    new_playlist_obj.g_playlist_versions = l_versions
+                    ihdb.create_playlist(new_playlist_obj)
+                    log.info('Created playlist %s in database with ID %d.'%(new_playlist_obj.g_playlist_name, new_playlist_obj.g_dbid))
+                    self.results_window.delivery_results.appendPlainText('INFO: Created playlist %s in database with ID %d.' % (
+                    new_playlist_obj.g_playlist_name, new_playlist_obj.g_dbid))
+                else:
+                    log.info('Create Playlist on ingest is enabled in the config file, but there have been no shot-level items ingested.')
+                    log.info('Skipping Playlist creation.')
+                    self.results_window.delivery_results.appendPlainText('Create Playlist on ingest is enabled in the config file, but there have been no shot-level items ingested.')
+                    self.results_window.delivery_results.appendPlainText('Skipping Playlist creation.')
                 QApplication.processEvents()
 
             # step 5: create a stub Nuke script, if none exists
