@@ -1754,6 +1754,7 @@ for dirname, subdirlist, filelist in os.walk(g_path):
             tmp_io.source_dir = dirname
             tmp_io.extension = os.path.splitext(fname)[-1].lstrip('.')
             if tmp_io.extension == 'mov':
+                log.debug('Taking a look at Quicktime movie %s...'%tmp_io.full_name)
                 mediainfo = quicktime_mediainfo(tmp_io.full_name)
                 miliseconds = 1000.0
                 frame_rate_re = '^([0-9.]+) '
