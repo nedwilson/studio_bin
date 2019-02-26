@@ -5,8 +5,8 @@ import csv
 import sys
 import re
 from openpyxl import load_workbook
-import PyQt5
-from PyQt5 import QtWidgets
+# import PyQt5
+# from PyQt5 import QtWidgets
 
 # currently a one-off, only set up to work for ROMEO.
 
@@ -230,14 +230,14 @@ with open(csv_filepath, 'w') as csvfile:
 
 print('Successfully wrote out CSV file %s.'%csv_filepath)
 
-app = QtWidgets.QApplication([])
-msg = QtWidgets.QMessageBox()
-msg.setIcon(QtWidgets.QMessageBox.Information)
-msg.setText('Successfully completed Vendor Delivery Translation.\nCSV File: \n%s'%csv_filepath)
-msg.setWindowTitle('Delivery Prep')
-app.exec_()
-returnval = msg.show()
-app.quit()
+# app = QtWidgets.QApplication([])
+# msg = QtWidgets.QMessageBox()
+# msg.setIcon(QtWidgets.QMessageBox.Information)
+# msg.setText('Successfully completed Vendor Delivery Translation.\nCSV File: \n%s'%csv_filepath)
+# msg.setWindowTitle('Delivery Prep')
+# app.exec_()
+# returnval = msg.show()
+# app.quit()
 
 
 
