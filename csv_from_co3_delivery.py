@@ -7,12 +7,15 @@ import re
 
 # currently a one-off, only set up to work for ROMEO.
 
-headers = ['Version name',
+headers = ['Version Name',
            'Link',
            'Task',
            'Type',
-           'Submitted for',
-           'Description']
+           'Submitted For',
+           'Description',
+           'First Frame Text',
+           'Last Frame Text',
+           'Frame Count Text']
 
 dirpath = ''
 
@@ -86,7 +89,7 @@ for dirname, subdirlist, filelist in os.walk(dirpath):
 
 dir_basename = os.path.basename(dirpath)
 
-csv_filepath = os.path.join(dirpath, '%s.csv'%dir_basename)
+csv_filepath = os.path.join(dirpath, 'vfxpull_%s.csv'%dir_basename)
 
 with open(csv_filepath, 'w') as csvfile:
     writer = csv.DictWriter(csvfile, fieldnames=headers)
@@ -102,14 +105,14 @@ with open(csv_filepath, 'w') as csvfile:
         rowdict['Type'] = 'Scan'
         rowdict['Submitted for'] = 'Element'
         rowdict['Description'] = 'Scan Ingestion'
-        # rowdict['FIRST FRAME'] = ''
-        # rowdict['LAST FRAME'] = ''
-        # rowdict['FRAME COUNT'] = ''
-        # if len(master_files_dict[version_code]['frames']) > 0:
-        #     sorted_frames_array = sorted(master_files_dict[version_code]['frames'])
-        #     rowdict['FIRST FRAME'] = sorted_frames_array[0]
-        #     rowdict['LAST FRAME'] = sorted_frames_array[-1]
-        #     rowdict['FRAME COUNT'] = '%d'%len(sorted_frames_array)
+        rowdict['First Frame Text'] = ''
+        rowdict['Last Frame Text'] = ''
+        rowdict['Frame Count Text'] = ''
+        if len(master_files_dict[version_code]['frames']) > 0:
+            sorted_frames_array = sorted(master_files_dict[version_code]['frames'])
+            rowdict['First Frame Text'] = sorted_frames_array[0]
+            rowdict['Last Frame Text'] = sorted_frames_array[-1]
+            rowdict['Frame Count Text'] = '%d'%len(sorted_frames_array)
         writer.writerow(rowdict)
 
 print('Successfully wrote out CSV file %s.'%csv_filepath)
