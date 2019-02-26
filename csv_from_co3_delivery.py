@@ -99,11 +99,11 @@ with open(csv_filepath, 'w') as csvfile:
     for version_code in sorted(master_files_dict.keys()):
         print('Adding version %s to CSV file...'%version_code)
         rowdict = {}
-        rowdict['Version name'] = version_code
+        rowdict['Version Name'] = version_code
         rowdict['Link'] = master_files_dict[version_code]['link']
         rowdict['Task'] = master_files_dict[version_code]['task']
         rowdict['Type'] = 'Scan'
-        rowdict['Submitted for'] = 'Element'
+        rowdict['Submitted For'] = 'Element'
         rowdict['Description'] = 'Scan Ingestion'
         rowdict['First Frame Text'] = ''
         rowdict['Last Frame Text'] = ''
