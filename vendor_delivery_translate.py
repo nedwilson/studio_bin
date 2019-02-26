@@ -148,37 +148,58 @@ for file in uniq_master_files_list:
                      'count' : None}
     print('Info: Found Version: %s'%file)
     master_files_dict[file] = tmp_file_dict
-    for subform_row in subform_rows:
-        if subform_row['Shot/Asset'].find(file) != -1:
-            print('Info: Found record for %s in submission form.'%file)
-            version_match = version_regexp.search(file)
-            if version_match:
-                version_number = int(version_match.group(1))
-                if version_number == 0:
-                    master_files_dict[file]['subreason'] = 'Scan Check'
-                else:
-                    master_files_dict[file]['subreason'] = 'WIP Comp'
+    version_match = version_regexp.search(file)
+    if version_match:
+        version_number = int(version_match.group(1))
+        if version_number == 0:
+            master_files_dict[file]['subreason'] = 'Scan Check'
+        else:
+            master_files_dict[file]['subreason'] = 'WIP Comp'
 
-            shot_match = shot_regexp.search(file)
-            if shot_match:
-                master_files_dict[file]['type'] = 'Shot'
-                master_files_dict[file]['link'] = shot_match.group(1)
-                master_files_dict[file]['task'] = 'Final'
-            else:
-                sequence_match = sequence_regexp.search(subform_row['Shot'])
-                if sequence_match:
-                    master_files_dict[file]['type'] = 'Sequence'
-                    master_files_dict[file]['link'] = sequence_match.group(1)
-                    master_files_dict[file]['task'] = 'R&D'
-                else:
-                    print('Warning: Unable to determine entity type for Version %s. Setting to Asset, but this will need to be manually adjusted.'%file)
-                    master_files_dict[file]['type'] = 'Asset'
-                    master_files_dict[file]['link'] = 'Miscellaneous'
-                    master_files_dict[file]['task'] = 'R&D'
-            master_files_dict[file]['desc'] = subform_row['Submission Notes']
-            master_files_dict[file]['first'] = subform_row['Comp Start Frame']
-            master_files_dict[file]['last'] = subform_row['Comp End Frame']
-            master_files_dict[file]['count'] = subform_row['Duration']
+    shot_match = shot_regexp.search(file)
+    if shot_match:
+        master_files_dict[file]['type'] = 'Shot'
+        master_files_dict[file]['link'] = shot_match.group(1)
+        master_files_dict[file]['task'] = 'Final'
+    else:
+        sequence_match = sequence_regexp.search(file)
+        if sequence_match:
+            master_files_dict[file]['type'] = 'Sequence'
+            master_files_dict[file]['link'] = sequence_match.group(1)
+            master_files_dict[file]['task'] = 'R&D'
+        else:
+            print(
+                'Warning: Unable to determine entity type for Version %s. Setting to Asset, but this will need to be manually adjusted.' % file)
+            master_files_dict[file]['type'] = 'Asset'
+            master_files_dict[file]['link'] = 'Miscellaneous'
+            master_files_dict[file]['task'] = 'R&D'
+
+    b_subform_match = False
+    for subform_row in subform_rows:
+        tmp_subform_version_code = ''
+        try:
+            tmp_subform_version_code = subform_row['Shot/Asset']
+        except KeyError:
+            print('Warning: Submission form does not have Shot/Asset column. Will try with Version Name instead.')
+            try:
+                tmp_subform_version_code = subform_row['Version Name']
+            except KeyError:
+                print('Warning: Submission form does not have Version Name column either. Skipping.')
+                continue
+
+        if tmp_subform_version_code.find(file) != -1:
+            b_subform_match = True
+            print('Info: Found record for %s in submission form.'%file)
+            try:
+                master_files_dict[file]['desc'] = subform_row['Submission Notes']
+                master_files_dict[file]['first'] = subform_row['Comp Start Frame']
+                master_files_dict[file]['last'] = subform_row['Comp End Frame']
+                master_files_dict[file]['count'] = subform_row['Duration']
+            except KeyError:
+                print('Warning: This submission form does not have columns for one or more of the following: Submission Notes, Comp Start Frame, Comp End Frame, or Duration.')
+
+    if not b_subform_match:
+        master_files_dict[file]['desc'] = 'Shotgun Toolkit Create Delivery'
 
 
 dir_basename = os.path.basename(dirpath)
