@@ -5,6 +5,8 @@ import csv
 import sys
 import re
 from openpyxl import load_workbook
+import PyQt5
+from PyQt5 import QtWidgets
 
 # currently a one-off, only set up to work for ROMEO.
 
@@ -71,7 +73,7 @@ def extract_excel(filepath):
 
 def extract_csv(filepath):
     print('Info: Parsing CSV file: %s'%filepath)
-    csvhandle = open(filepath, 'r')
+    csvhandle = open(filepath, 'rU')
     csvreader = csv.reader(csvhandle)
     for header in csvreader.next():
         subform_header_columns.append(header)
@@ -227,6 +229,14 @@ with open(csv_filepath, 'w') as csvfile:
         writer.writerow(rowdict)
 
 print('Successfully wrote out CSV file %s.'%csv_filepath)
+
+app = QtWidgets.QApplication([])
+msg = QtWidgets.QMessageBox()
+msg.setIcon(QtWidgets.QMessageBox.Information)
+msg.setText('Successfully completed Vendor Delivery Translation.\nCSV File: \n%s'%csv_filepath)
+msg.setWindowTitle('Delivery Prep')
+msg.show()
+
 
 
 
