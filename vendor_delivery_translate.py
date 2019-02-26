@@ -235,7 +235,9 @@ msg = QtWidgets.QMessageBox()
 msg.setIcon(QtWidgets.QMessageBox.Information)
 msg.setText('Successfully completed Vendor Delivery Translation.\nCSV File: \n%s'%csv_filepath)
 msg.setWindowTitle('Delivery Prep')
-msg.show()
+app._exec()
+returnval = msg.show()
+app.quit()
 
 
 
