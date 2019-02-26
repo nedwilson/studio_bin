@@ -159,7 +159,7 @@ for file in uniq_master_files_list:
                 else:
                     master_files_dict[file]['subreason'] = 'WIP Comp'
 
-            shot_match = shot_regexp.search(subform_row['Shot'])
+            shot_match = shot_regexp.search(file)
             if shot_match:
                 master_files_dict[file]['type'] = 'Shot'
                 master_files_dict[file]['link'] = shot_match.group(1)
@@ -184,6 +184,7 @@ for file in uniq_master_files_list:
 dir_basename = os.path.basename(dirpath)
 
 csv_filepath = os.path.join(dirpath, '%s.csv'%dir_basename)
+print('Info: Writing out CSV: %s'%csv_filepath)
 
 with open(csv_filepath, 'w') as csvfile:
     writer = csv.DictWriter(csvfile, fieldnames=headers)
