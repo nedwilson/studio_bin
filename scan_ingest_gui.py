@@ -904,12 +904,16 @@ class ScanIngestWindow(QMainWindow):
                     for tmp_thumb_path in glob.glob(plate_thumb_glob):
                         plate_thumb_path = tmp_thumb_path
 
+                    log.debug('About to call fetch_version() for %s, searching in shot code %s.'%(dest_base, dbshot.g_shot_code))
                     dbversion = ihdb.fetch_version(dest_base, dbshot)
                     if not dbversion:
+                        log.debug('Unable to find version in Database named %s in shot %s. Will create a new one.' % (
+                        dest_base, dbshot.g_shot_code))
                         dbversion = DB.Version(dest_base, -1, 'Element Version from Scan Ingest', dbplate.g_start_frame, dbplate.g_end_frame, dbplate.g_duration, dbplate.g_filesystem_path, None, dbshot, None, None)
                         dbversion.set_status('vwd')
                         dbversion.set_version_type('Scan')
                         ihdb.create_version(dbversion)
+                        log.info('Successfully created new Version %s.'%dest_base)
                     else:
                         dbversion.g_description = 'Element Version from Scan Ingest'
                         dbversion.g_path_to_frames = dbplate.g_filesystem_path
@@ -1004,8 +1008,11 @@ class ScanIngestWindow(QMainWindow):
                             plate_thumb_path = tmp_thumb_path
                             log.info('Located thumbnail for Version %s: %s' % (dest_base, plate_thumb_path))
 
+                    log.debug('About to call fetch_version() for %s, searching in shot code %s.' % (
+                    dest_base, dbshot.g_shot_code))
                     dbversion = ihdb.fetch_version(dest_base, dbshot)
                     if not dbversion:
+                        log.debug('Unable to find version in Database named %s in shot %s. Will create a new one.'%(dest_base, dbshot.g_shot_code))
                         dbversion = DB.Version(dest_base, -1, 'Quicktime Version from Scan Ingest', tmp_io.start_frame, tmp_io.end_frame, tmp_io.start_frame, None, dest_full_path, dbshot, None, None)
                         dbversion.set_status('vwd')
                         dbversion.set_version_type('Reference')
