@@ -633,6 +633,8 @@ class ScanIngestWindow(QMainWindow):
             # step 3: query the database for unique shots
             uniq_shots = {}
             for tmp_io in g_ingest_sorted:
+                log.debug("Examining IngestObject...")
+                log.debug(tmp_io)
                 if tmp_io.scope == 'shot':
                     if tmp_io.parent_name not in uniq_shots.keys():
                         seq_regexp = '(%s)'%g_seq_regexp
@@ -1641,7 +1643,7 @@ try:
     g_cdl_file_ext = config.get(g_ih_show_code, 'cdl_file_ext')
     log.info("Successfully loaded show-specific config file for %s."%g_ih_show_code)
     ihdb = DB.DBAccessGlobals.get_db_access()
-
+    ihdb.set_logger_object(log)
     # Shotgun Authentication
     sa = sgtk.authentication.ShotgunAuthenticator()
     user = sa.create_script_user(api_script=config.get('database', 'shotgun_script_name'), api_key=config.get('database', 'shotgun_api_key'), host=config.get('database', 'shotgun_server_path'))
@@ -1667,6 +1669,7 @@ for dirname, subdirlist, filelist in os.walk(g_path):
     for fidx, fname in enumerate(sorted(filelist)):
         badfile = False
         for badfile_re in g_file_ignore_list:
+            # log.debug('Regular expression: %s'%badfile_re)
             if re.search(badfile_re, fname):
                 log.info("Skipping file %s - it is in the exclude list."%fname)
                 badfile = True
