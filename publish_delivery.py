@@ -3,6 +3,8 @@
 import argparse
 import delivery
 import sys
+import logging
+import os
 
 parser = argparse.ArgumentParser(description='Command-line Python Tool that creates delivery packages and sends them to production.')
 parser.add_argument('-g', '--gui', help='Launches the GUI version of the application', action='store_true')
@@ -68,6 +70,33 @@ if args.matte:
 if args.playlist:
     s_hero_playlist = args.playlist
 
+homedir = os.path.expanduser('~')
+logfile = ""
+if sys.platform == 'win32':
+    logfile = os.path.join(homedir, 'AppData', 'Local', 'IHPipeline', '%s.log' % 'publish_delivery')
+elif sys.platform == 'darwin':
+    logfile = os.path.join(homedir, 'Library', 'Logs', 'IHPipeline', '%s.log' % 'publish_delivery')
+elif sys.platform == 'linux2':
+    logfile = os.path.join(homedir, 'Logs', 'IHPipeline', '%s.log' % 'publish_delivery')
+if not os.path.exists(os.path.dirname(logfile)):
+    os.makedirs(os.path.dirname(logfile))
+logFormatter = logging.Formatter("%(asctime)s:[%(threadName)s]:[%(levelname)s]:%(message)s")
+log = logging.getLogger()
+log.setLevel(logging.INFO)
+try:
+    devmode = os.environ['NUKE_DEVEL']
+    log.setLevel(logging.DEBUG)
+except:
+    pass
+fileHandler = logging.FileHandler(logfile)
+fileHandler.setFormatter(logFormatter)
+log.addHandler(fileHandler)
+consoleHandler = logging.StreamHandler()
+consoleHandler.setFormatter(logFormatter)
+log.addHandler(consoleHandler)
+log.info('Default log file path initialized to %s.' % logfile)
+
+delivery.set_logger(log)
 delivery.globals_from_config()
 
 if b_gui:
