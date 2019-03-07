@@ -475,7 +475,7 @@ class ScanIngestWindow(QMainWindow):
     def process_ingest(self):
         global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, \
             g_shot_dir_format, g_shot_thumb_dir, g_version_separator, g_version_format, g_cdl_file_ext, \
-            g_ih_show_cfg_path
+            g_ih_show_cfg_path, g_overwrite
         self.hide()
         self.results_window.show()
         # dictionary object for thumbnails
@@ -584,6 +584,15 @@ class ScanIngestWindow(QMainWindow):
                                     os.link(source_file, dest_full_path)
                                 elif file_operation == "copy":
                                     shutil.copyfile(source_file, dest_full_path)
+                            else:
+                                if g_overwrite:
+                                    log.info('%s: %s -> %s' % (file_operation, source_file, dest_full_path))
+                                    if file_operation == "hardlink":
+                                        os.unlink(dest_full_path)
+                                        os.link(source_file, dest_full_path)
+                                    elif file_operation == "copy":
+                                        shutil.copyfile(source_file, dest_full_path)
+
                     log.info('Done.')
                     self.results_window.delivery_results.appendPlainText("INFO: Done.")
                     QApplication.processEvents()
@@ -601,6 +610,14 @@ class ScanIngestWindow(QMainWindow):
                         elif file_operation == "copy":
                             shutil.copyfile(tmp_io.full_name, ddp)
                             log.info('%s: %s -> %s' % ('copy', tmp_io.full_name, ddp))
+                    else:
+                        if g_overwrite == True:
+                            if file_operation == "hardlink":
+                                os.unlink(ddp)
+                                os.link(tmp_io.full_name, ddp)
+                            elif file_operation == "copy":
+                                shutil.copyfile(tmp_io.full_name, ddp)
+                                log.info('%s: %s -> %s' % ('copy', tmp_io.full_name, ddp))
                     log.info('Done.')
                     self.results_window.delivery_results.appendPlainText("INFO: Done.")
                     QApplication.processEvents()
@@ -986,6 +1003,7 @@ class ScanIngestWindow(QMainWindow):
 
                     # upload a thumbnail for the plate to the shot, in the event that this is a new shot
                     if b_new_shot_thumb and tmp_io.is_mainplate:
+                        log.info('This is a new shot. Will copy the thumbnail from the main plate to this shot.')
                         shutil.copyfile(generated_thumb_path, thumbnails.get_thumbnail_for_shot(dbshot.g_shot_code))
                         log.info('%s: %s -> %s' % ('copy', generated_thumb_path, thumbnails.get_thumbnail_for_shot(dbshot.g_shot_code)))
                         ihdb.upload_thumbnail('Shot', dbshot, generated_thumb_path)
@@ -1597,6 +1615,7 @@ g_rules = []
 config = None
 g_object_scope_list = ['show', 'sequence', 'shot']
 ihdb = None
+g_overwrite = False
 
 # Shotgun Authentication
 sa = None
@@ -1648,6 +1667,10 @@ try:
         g_dest_type_dict[type] = path_fmt
     g_frame_format = config.get(g_ih_show_code, 'write_frame_format')
     g_cdl_file_ext = config.get(g_ih_show_code, 'cdl_file_ext')
+    if g_config.get('scan_ingest', 'overwrite') in ['Yes', 'YES', 'yes', 'TRUE', 'True', 'true', 'Y', 'y']:
+        g_overwrite = True
+    else:
+        g_overwrite = False
     log.info("Successfully loaded show-specific config file for %s."%g_ih_show_code)
     ihdb = DB.DBAccessGlobals.get_db_access()
     ihdb.set_logger_object(log)
