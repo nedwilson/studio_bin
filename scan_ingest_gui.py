@@ -1669,6 +1669,7 @@ try:
     g_cdl_file_ext = config.get(g_ih_show_code, 'cdl_file_ext')
     if g_config.get('scan_ingest', 'overwrite') in ['Yes', 'YES', 'yes', 'TRUE', 'True', 'true', 'Y', 'y']:
         g_overwrite = True
+        log.warning('Setting boolean g_overwrite to True. This will overwrite any frames that already exist in the destination folders.')
     else:
         g_overwrite = False
     log.info("Successfully loaded show-specific config file for %s."%g_ih_show_code)
