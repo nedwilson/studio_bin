@@ -1667,7 +1667,7 @@ try:
         g_dest_type_dict[type] = path_fmt
     g_frame_format = config.get(g_ih_show_code, 'write_frame_format')
     g_cdl_file_ext = config.get(g_ih_show_code, 'cdl_file_ext')
-    if g_config.get('scan_ingest', 'overwrite') in ['Yes', 'YES', 'yes', 'TRUE', 'True', 'true', 'Y', 'y']:
+    if config.get('scan_ingest', 'overwrite') in ['Yes', 'YES', 'yes', 'TRUE', 'True', 'true', 'Y', 'y']:
         g_overwrite = True
         log.warning('Setting boolean g_overwrite to True. This will overwrite any frames that already exist in the destination folders.')
     else:
