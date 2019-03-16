@@ -21,6 +21,7 @@ import sgtk
 import OpenEXR
 import thumbnails
 import datetime
+import requests
 
 import db_access as DB
 from ccdata import CCData
@@ -475,7 +476,7 @@ class ScanIngestWindow(QMainWindow):
     def process_ingest(self):
         global g_ingest_sorted, log, g_ih_show_root, g_ih_show_code, config, ihdb, g_seq_regexp, g_seq_dir_format, \
             g_shot_dir_format, g_shot_thumb_dir, g_version_separator, g_version_format, g_cdl_file_ext, \
-            g_ih_show_cfg_path, g_overwrite
+            g_ih_show_cfg_path, g_overwrite, g_lut_transcode, g_lut_transcode_url, g_lut_transcode_json
         self.hide()
         self.results_window.show()
         # dictionary object for thumbnails
@@ -627,6 +628,20 @@ class ScanIngestWindow(QMainWindow):
                     log.debug(tmp_io.scope)
                     log.debug(tmp_io.dest_name)
                     log.debug(mainplate_regexp)
+                    # do we need to transcode the lut?
+                    if tmp_io.type == 'color correction':
+                        if g_lut_transcode:
+                            log.debug('Boolean lut_transcode is True!')
+                            log.info('Sending LUT %s for transcode processing...'%ddp)
+                            lut_transcode_string = g_lut_transcode_json.format(filepath=ddp)
+                            log.debug('JSON being sent to server %s:'%g_lut_transcode_url)
+                            log.debug(lut_transcode_string)
+                            response = requests.post(g_lut_transcode_url, data=lut_transcode_string)
+                            destination_lut_file = response.json()['destination_lut_file']
+                            log.info('Transcoded LUT path: %s' % destination_lut_file)
+                            self.results_window.delivery_results.appendPlainText(
+                                "INFO: Wrote out converted LUT file at %s." % destination_lut_file)
+                            QApplication.processEvents()
                     if tmp_io.type == 'color correction' and tmp_io.scope == 'shot':
                         if tmp_io.is_mainplate:
                             default_cc_file = os.path.join(tmp_io.dest_dir, '%s.%s' % (tmp_io.parent_name, ccext))
@@ -646,6 +661,18 @@ class ScanIngestWindow(QMainWindow):
                                 tmp_ccdata.get_write_function(ccext)(default_cc_file)
                                 self.results_window.delivery_results.appendPlainText("INFO: Wrote out default CC file for shot at %s."%default_cc_file)
                                 QApplication.processEvents()
+                        if g_lut_transcode:
+                            log.debug('Boolean lut_transcode is True!')
+                            log.info('Sending main plate LUT %s for transcode processing...'%default_cc_file)
+                            lut_transcode_string = g_lut_transcode_json.format(filepath=default_cc_file)
+                            log.debug('JSON being sent to server %s:'%g_lut_transcode_url)
+                            log.debug(lut_transcode_string)
+                            response = requests.post(g_lut_transcode_url, data=lut_transcode_string)
+                            destination_lut_file = response.json()['destination_lut_file']
+                            log.info('Transcoded main plate LUT path: %s' % destination_lut_file)
+                            self.results_window.delivery_results.appendPlainText(
+                                "INFO: Wrote out converted main plate LUT file at %s." % destination_lut_file)
+                            QApplication.processEvents()
 
             # step 3: query the database for unique shots
             uniq_shots = {}
@@ -1616,6 +1643,9 @@ config = None
 g_object_scope_list = ['show', 'sequence', 'shot']
 ihdb = None
 g_overwrite = False
+g_lut_transcode = False
+g_lut_transcode_url = None
+g_lut_transcode_json = None
 
 # Shotgun Authentication
 sa = None
@@ -1673,6 +1703,10 @@ try:
     else:
         g_overwrite = False
     log.info("Successfully loaded show-specific config file for %s."%g_ih_show_code)
+    if config.get('scan_ingest', 'lut_transcode') in ['Yes', 'YES', 'yes', 'TRUE', 'True', 'true', 'Y', 'y']:
+        g_lut_transcode = True
+        g_lut_transcode_url = config.get('scan_ingest', 'lut_transcode_url')
+        g_lut_transcode_json = config.get('scan_ingest', 'lut_transcode_json')
     ihdb = DB.DBAccessGlobals.get_db_access()
     ihdb.set_logger_object(log)
     # Shotgun Authentication
