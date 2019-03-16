@@ -633,7 +633,7 @@ class ScanIngestWindow(QMainWindow):
                         if g_lut_transcode:
                             log.debug('Boolean lut_transcode is True!')
                             log.info('Sending LUT %s for transcode processing...'%ddp)
-                            lut_transcode_string = g_lut_transcode_json.format(filepath=ddp)
+                            lut_transcode_string = g_lut_transcode_json%ddp
                             log.debug('JSON being sent to server %s:'%g_lut_transcode_url)
                             log.debug(lut_transcode_string)
                             response = requests.post(g_lut_transcode_url, data=lut_transcode_string)
@@ -664,7 +664,7 @@ class ScanIngestWindow(QMainWindow):
                         if g_lut_transcode:
                             log.debug('Boolean lut_transcode is True!')
                             log.info('Sending main plate LUT %s for transcode processing...'%default_cc_file)
-                            lut_transcode_string = g_lut_transcode_json.format(filepath=default_cc_file)
+                            lut_transcode_string = g_lut_transcode_json%default_cc_file
                             log.debug('JSON being sent to server %s:'%g_lut_transcode_url)
                             log.debug(lut_transcode_string)
                             response = requests.post(g_lut_transcode_url, data=lut_transcode_string)
