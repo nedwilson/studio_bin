@@ -668,11 +668,11 @@ class ScanIngestWindow(QMainWindow):
                                 tmp_ccdata.get_write_function(ccext)(default_cc_file)
                                 self.results_window.delivery_results.appendPlainText("INFO: Wrote out default CC file for shot at %s."%default_cc_file)
                                 QApplication.processEvents()
-                        if g_lut_transcode:
+                        if g_lut_transcode and tmp_io.extension != 'csp':
                             log.debug('Boolean lut_transcode is True!')
-                            log.info('Sending main plate LUT %s for transcode processing...'%default_cc_file)
+                            log.info('Sending LUT %s for transcode processing...'%ddp)
                             json_dict = { 'destination_lut_format' : 'csp',
-                                          'filepath' : default_cc_file,
+                                          'filepath' : ddp,
                                           'overwrite' : 'True' }
                             log.debug('JSON being sent to server %s:'%str(json_dict))
                             response = requests.post(g_lut_transcode_url, json=json_dict)
