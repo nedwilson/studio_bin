@@ -659,34 +659,34 @@ class ScanIngestWindow(QMainWindow):
                                     os.link(tmp_io.full_name, default_cc_file)
                                 elif file_operation == "copy":
                                     shutil.copyfile(tmp_io.full_name, default_cc_file)
-                                self.results_window.delivery_results.appendPlainText("INFO: Wrote out default CUBE file for shot at %s."%default_cc_file)
+                                self.results_window.delivery_results.appendPlainText("INFO: Wrote out default %s file for shot at %s."%(tmp_io.extension.upper(), default_cc_file))
                                 QApplication.processEvents()
                             else:
-                                log.info('This cc file has been flagged as a Main Plate. Will make the shot default CC file from it.')
+                                log.info('This cc file has been flagged as a Main Plate. Will make the shot default %s file from it.'%tmp_io.extension.upper())
                                 tmp_ccdata = CCData(ddp)
                                 log.info('Default CC file: %s'%default_cc_file)
                                 tmp_ccdata.get_write_function(ccext)(default_cc_file)
-                                self.results_window.delivery_results.appendPlainText("INFO: Wrote out default CC file for shot at %s."%default_cc_file)
+                                self.results_window.delivery_results.appendPlainText("INFO: Wrote out default %s file for shot at %s."%(tmp_io.extension.upper(), default_cc_file))
                                 QApplication.processEvents()
-                        if g_lut_transcode and tmp_io.extension != 'csp':
-                            log.debug('Boolean lut_transcode is True!')
-                            log.info('Sending LUT %s for transcode processing...'%ddp)
-                            json_dict = { 'destination_lut_format' : 'csp',
-                                          'filepath' : ddp,
-                                          'overwrite' : 'True' }
-                            log.debug('JSON being sent to server %s:'%str(json_dict))
-                            response = requests.post(g_lut_transcode_url, json=json_dict)
-                            if response.status_code != 200:
-                                log.warning('Errors occurred while attempting to transcode the LUT.')
-                                log.warning(str(response.json()))
-                                self.results_window.delivery_results.appendPlainText(
-                                    "ERROR: Unable to transcode main plate LUT file %s. Please look at Terminal window." % ddp)
-                            else:
-                                destination_lut_file = response.json()['destination_lut_file']
-                                log.info('Transcoded main plate LUT path: %s' % destination_lut_file)
-                                self.results_window.delivery_results.appendPlainText(
-                                    "INFO: Wrote out converted main plate LUT file at %s." % destination_lut_file)
-                            QApplication.processEvents()
+                            if g_lut_transcode:
+                                log.debug('Boolean lut_transcode is True!')
+                                log.info('Sending LUT %s for transcode processing...'%default_cc_file)
+                                json_dict = { 'destination_lut_format' : 'csp',
+                                              'filepath' : default_cc_file,
+                                              'overwrite' : 'True' }
+                                log.debug('JSON being sent to server %s:'%str(json_dict))
+                                response = requests.post(g_lut_transcode_url, json=json_dict)
+                                if response.status_code != 200:
+                                    log.warning('Errors occurred while attempting to transcode the LUT.')
+                                    log.warning(str(response.json()))
+                                    self.results_window.delivery_results.appendPlainText(
+                                        "ERROR: Unable to transcode main plate LUT file %s. Please look at Terminal window." % ddp)
+                                else:
+                                    destination_lut_file = response.json()['destination_lut_file']
+                                    log.info('Transcoded main plate LUT path: %s' % destination_lut_file)
+                                    self.results_window.delivery_results.appendPlainText(
+                                        "INFO: Wrote out converted main plate LUT file at %s." % destination_lut_file)
+                                QApplication.processEvents()
 
             # step 3: query the database for unique shots
             uniq_shots = {}
