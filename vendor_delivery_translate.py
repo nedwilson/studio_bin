@@ -71,7 +71,7 @@ def extract_excel(filepath):
         subform_rows.append(rowdict)
     old_filepath = os.path.join(extra_files_dir, os.path.basename(filepath))
     print('Info: Saving out XLSX file as: %s'%old_filepath)
-    os.move(filepath, old_filepath)
+    shutil.move(filepath, old_filepath)
 
 
 def extract_csv(filepath):
@@ -88,7 +88,7 @@ def extract_csv(filepath):
     csvhandle.close()
     old_filepath = os.path.join(extra_files_dir, os.path.basename(filepath))
     print('Info: Saving out CSV file as: %s'%old_filepath)
-    os.move(filepath, old_filepath)
+    shutil.move(filepath, old_filepath)
 
 
 def check_file_naming(filepath):
