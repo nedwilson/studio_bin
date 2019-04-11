@@ -94,6 +94,8 @@ def extract_csv(filepath):
 def check_file_naming(filepath):
     filename = os.path.basename(filepath)
     filedir = os.path.dirname(filepath)
+    if filedir.find('extra_files') != -1:
+        return
     filename_array = filename.split('.')
     filebase = filename_array[0]
     if len(filebase) < 1:
