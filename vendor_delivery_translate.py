@@ -113,7 +113,7 @@ def check_file_naming(filepath):
         extract_csv(filepath)
         return
     else:
-        if fileext not in ['exr', 'dpx', 'mov']:
+        if fileext not in ['exr', 'dpx', 'mov', 'jpg', 'png']:
             # move these files to the extra_files dir
             extra_destfile = os.path.join(extra_files_dir, filename)
             if os.path.exists(extra_destfile):
@@ -180,6 +180,8 @@ for file in uniq_master_files_list:
         else:
             master_files_dict[file]['subreason'] = 'WIP Comp'
 
+    if os.path.splitext(file)[1] in ['.png', '.jpg']:
+        master_files_dict['file']['subreason'] = 'Reference'
     shot_match = shot_regexp.search(file)
     if shot_match:
         master_files_dict[file]['type'] = 'Shot'
