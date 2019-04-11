@@ -93,6 +93,11 @@ def extract_csv(filepath):
 
 def check_file_naming(filepath):
     filename = os.path.basename(filepath)
+    # remove extra os files
+    if filename == '.DS_Store':
+        os.unlink(filepath)
+    if filename == 'Thumbs.db':
+        os.unlink(filepath)
     filedir = os.path.dirname(filepath)
     if filedir.find('support_files') != -1:
         return
