@@ -96,8 +96,10 @@ def check_file_naming(filepath):
     # remove extra os files
     if filename == '.DS_Store':
         os.unlink(filepath)
+        return
     if filename == 'Thumbs.db':
         os.unlink(filepath)
+        return
     filedir = os.path.dirname(filepath)
     if filedir.find('support_files') != -1:
         return
@@ -119,6 +121,7 @@ def check_file_naming(filepath):
             if os.path.exists(extra_destfile):
                 os.unlink(extra_destfile)
             shutil.move(filepath, extra_files_dir)
+            return
 
     filebase_new = filebase
     for filename_extra_regexp in filename_extras_regexp_list:
