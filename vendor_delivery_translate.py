@@ -36,7 +36,7 @@ if not os.path.isdir(dirpath):
     print('Usage: vendor_delivery_translate.py /path/to/delivery/folder')
     exit()
 
-extra_files_dir = os.path.join(dirpath, 'extra_files')
+extra_files_dir = os.path.join(dirpath, 'support_files')
 
 shot_regexp_txt = r'([0-9]{3}_[A-Z]{3}_[0-9]{4})_'
 sequence_regexp_txt = r'([A-Z]{3})_'
@@ -69,9 +69,9 @@ def extract_excel(filepath):
         for idx, column in enumerate(row):
             rowdict[subform_header_columns[idx]] = column.value
         subform_rows.append(rowdict)
-    old_filepath = os.path.join(os.path.dirname(filepath), '%s.bak'%os.path.splitext(os.path.basename(filepath))[0])
+    old_filepath = os.path.join(extra_files_dir, os.path.basename(filepath))
     print('Info: Saving out XLSX file as: %s'%old_filepath)
-    os.rename(filepath, old_filepath)
+    os.move(filepath, old_filepath)
 
 
 def extract_csv(filepath):
@@ -86,15 +86,15 @@ def extract_csv(filepath):
             rowdict[subform_header_columns[idx]] = column
         subform_rows.append(rowdict)
     csvhandle.close()
-    old_filepath = os.path.join(os.path.dirname(filepath), '%s.bak'%os.path.splitext(os.path.basename(filepath))[0])
+    old_filepath = os.path.join(extra_files_dir, os.path.basename(filepath))
     print('Info: Saving out CSV file as: %s'%old_filepath)
-    os.rename(filepath, old_filepath)
+    os.move(filepath, old_filepath)
 
 
 def check_file_naming(filepath):
     filename = os.path.basename(filepath)
     filedir = os.path.dirname(filepath)
-    if filedir.find('extra_files') != -1:
+    if filedir.find('support_files') != -1:
         return
     filename_array = filename.split('.')
     filebase = filename_array[0]
