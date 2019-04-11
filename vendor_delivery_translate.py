@@ -108,7 +108,9 @@ def check_file_naming(filepath):
     else:
         if fileext not in ['exr', 'dpx', 'mov']:
             # move these files to the extra_files dir
-            shutil.move(filepath, extra_files_dir)
+            extra_destfile = os.path.join(extra_files_dir, filename)
+            if not os.path.exists(extra_destfile):
+                shutil.move(filepath, extra_files_dir)
 
     filebase_new = filebase
     for filename_extra_regexp in filename_extras_regexp_list:
