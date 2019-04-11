@@ -15,8 +15,7 @@ headers = ['Version Name',
            'Description',
            'First Frame Text',
            'Last Frame Text',
-           'Frame Count Text',
-           'Formats']
+           'Frame Count Text']
 
 dirpath = ''
 
@@ -127,7 +126,7 @@ with open(csv_filepath, 'w') as csvfile:
             rowdict['First Frame Text'] = sorted_frames_array[0]
             rowdict['Last Frame Text'] = sorted_frames_array[-1]
             rowdict['Frame Count Text'] = '%d'%len(sorted_frames_array)
-        rowdict['Formats'] = ', '.join(master_files_dict[version_code]['formats'])
+        # rowdict['Formats'] = ', '.join(master_files_dict[version_code]['formats'])
         writer.writerow(rowdict)
 
 print('Successfully wrote out CSV file %s.'%csv_filepath)
