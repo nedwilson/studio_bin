@@ -15,7 +15,8 @@ headers = ['Version Name',
            'Description',
            'First Frame Text',
            'Last Frame Text',
-           'Frame Count Text']
+           'Frame Count Text',
+           'Formats']
 
 dirpath = ''
 
@@ -60,8 +61,21 @@ def handle_file_copy(filepath):
                          'frames' : [],
                          'type' : None,
                          'link' : None,
-                         'task' : None}
+                         'task' : None,
+                         'formats' : []}
         master_files_dict[filebase] = tmp_file_dict
+    tmp_format_spec = None
+    if fileext == 'exr':
+        tmp_format_spec = 'imgseq_plate'
+    elif fileext == 'mov':
+        tmp_format_spec = 'movie_plate'
+    elif fileext == 'cube':
+        tmp_format_spec = 'lut_plate'
+    elif fileext == 'dpx':
+        tmp_format_spec = 'imgseq_plate'
+    if tmp_format_spec not in master_files_dict[filebase]['formats']:
+        master_files_dict[filebase]['formats'].append(tmp_format_spec)
+
     imgseq_match = imgseq_regexp.search(filename)
     if imgseq_match:
         master_files_dict[filebase]['frames'].append(imgseq_match.group(1))
@@ -113,6 +127,7 @@ with open(csv_filepath, 'w') as csvfile:
             rowdict['First Frame Text'] = sorted_frames_array[0]
             rowdict['Last Frame Text'] = sorted_frames_array[-1]
             rowdict['Frame Count Text'] = '%d'%len(sorted_frames_array)
+        rowdict['Formats'] = ', '.join(master_files_dict[version_code]['formats'])
         writer.writerow(rowdict)
 
 print('Successfully wrote out CSV file %s.'%csv_filepath)
