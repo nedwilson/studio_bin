@@ -42,6 +42,7 @@ shot_regexp_txt = r'([0-9]{3}_[A-Z]{3}_[0-9]{4})_'
 sequence_regexp_txt = r'([A-Z]{3})_'
 imgseq_regexp_txt = r'\.([0-9]+)\.'
 version_name_regexp_text = r'([0-9]{3}_[A-Z]{3}_[0-9]{4}_[A-Za-z0-9\-_]+_v[0-9]+)'
+version_name_wframe_regexp_text = r'([0-9]{3}_[A-Z]{3}_[0-9]{4})_([A-Za-z0-9\-_]+)_(v[0-9]+)\.([0-9]+)'
 version_regexp_text = r'_v([0-9]+)'
 
 shot_regexp = re.compile(shot_regexp_txt)
@@ -49,10 +50,12 @@ sequence_regexp = re.compile(sequence_regexp_txt)
 imgseq_regexp = re.compile(imgseq_regexp_txt)
 version_name_regexp = re.compile(version_name_regexp_text)
 version_regexp = re.compile(version_regexp_text)
+version_name_wframe_regexp = re.compile(version_name_wframe_regexp_text)
 
 filename_extras_regexp_text_list = [r'(.*)_vfx', r'(.*)_avid', r'(.*)_prores', r'(.*)_pr422', r'(.*)_matte']
 filename_extras_regexp_list = [re.compile(pattern) for pattern in filename_extras_regexp_text_list]
 master_files_list = []
+master_files_ext_dict = {}
 subform_header_columns = []
 subform_rows = []
 
@@ -93,6 +96,7 @@ def extract_csv(filepath):
 
 def check_file_naming(filepath):
     filename = os.path.basename(filepath)
+    b_renamed = False
     # remove extra os files
     if filename == '.DS_Store':
         os.unlink(filepath)
@@ -122,6 +126,15 @@ def check_file_naming(filepath):
                 os.unlink(extra_destfile)
             shutil.move(filepath, extra_files_dir)
             return
+        # deal with stills
+        else:
+            if fileext in ['jpg', 'png']:
+                version_name_match = version_name_wframe_regexp.search(filename)
+                if version_name_match:
+                    filename_destination = '%s_%s_frame%s_%s.%s'%(version_name_match.group(1), version_name_match.group(2), version_name_match.group(4), version_name_match.group(3), fileext)
+                    print('Info: %s will be renamed to %s.' % (filename, filename_destination))
+                    os.rename(os.path.join(filedir, filename), os.path.join(filedir, filename_destination))
+                    b_renamed = True
 
     filebase_new = filebase
     for filename_extra_regexp in filename_extras_regexp_list:
@@ -131,10 +144,20 @@ def check_file_naming(filepath):
             new_filename_array = filename_array
             new_filename_array[0] = filebase_new
             filename_destination = '.'.join(new_filename_array)
-            print('Info: %s will be renamed to %s.'%(filename, filename_destination))
-            os.rename(os.path.join(filedir, filename), os.path.join(filedir, filename_destination))
+            if not b_renamed:
+                print('Info: %s will be renamed to %s.'%(filename, filename_destination))
+                os.rename(os.path.join(filedir, filename), os.path.join(filedir, filename_destination))
 
+    # account for frame numbers in version names
+    if len(filename_array) > 2:
+        filebase_new = "%s.%s"%(filebase_new, filename_array[1])
     master_files_list.append(filebase_new)
+    try:
+        master_files_ext_dict[filebase_new].append(fileext)
+    except KeyError:
+        master_files_ext_dict[filebase_new] = []
+        master_files_ext_dict[filebase_new].append(fileext)
+
 
 # make a "extra_files" folder if one does not exist
 if not os.path.exists(extra_files_dir):
@@ -144,7 +167,7 @@ else:
         raise RuntimeError("Path %s is not a directory!"%extra_files_dir)
 
 # make sure the directories are named correctly
-directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(matte)']
+directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(matte)', r'(jpg)']
 directory_regexp_list = [re.compile(pattern) for pattern in directory_regexp_text_list]
 
 directory_list = os.listdir(dirpath)
@@ -165,6 +188,12 @@ for dirname, subdirlist, filelist in os.walk(dirpath):
 uniq_master_files_list = sorted(set(master_files_list))
 master_files_dict = {}
 for file in uniq_master_files_list:
+    tmp_extension_list = []
+    try:
+        tmp_extension_list = master_files_ext_dict[file]
+    except KeyError:
+        pass
+
     tmp_file_dict = {'type' : None,
                      'link' : None,
                      'task' : None,
@@ -172,7 +201,8 @@ for file in uniq_master_files_list:
                      'desc' : None,
                      'first' : None,
                      'last' : None,
-                     'count' : None}
+                     'count' : None,
+                     'extensions' : tmp_extension_list}
     print('Info: Found Version: %s'%file)
     master_files_dict[file] = tmp_file_dict
     version_match = version_regexp.search(file)
@@ -182,9 +212,9 @@ for file in uniq_master_files_list:
             master_files_dict[file]['subreason'] = 'Scan Check'
         else:
             master_files_dict[file]['subreason'] = 'WIP Comp'
-
-    if os.path.splitext(file)[1] in ['.png', '.jpg']:
-        master_files_dict['file']['subreason'] = 'Reference'
+    for tmp_ext in tmp_file_dict['extensions']:
+        if tmp_ext in ['png', 'jpg']:
+            master_files_dict[file]['subreason'] = 'Concept'
     shot_match = shot_regexp.search(file)
     if shot_match:
         master_files_dict[file]['type'] = 'Shot'
@@ -206,6 +236,9 @@ for file in uniq_master_files_list:
     b_subform_match = False
     for subform_row in subform_rows:
         tmp_subform_version_code = ''
+        tmp_file = file
+        if tmp_file.find('.') != -1:
+            tmp_file = tmp_file.split('.')[0]
         try:
             tmp_subform_version_code = subform_row['Shot/Asset']
         except KeyError:
@@ -230,7 +263,15 @@ for file in uniq_master_files_list:
     if not b_subform_match:
         master_files_dict[file]['desc'] = 'Shotgun Toolkit Create Delivery'
 
+new_master_files_dict = {}
+for tmp_version_name in master_files_dict.keys():
+    new_version_name = tmp_version_name
+    version_name_match = version_name_wframe_regexp.search(new_version_name)
+    if version_name_match:
+        new_version_name = '%s_%s_frame%s_%s'%(version_name_match.group(1), version_name_match.group(2), version_name_match.group(4), version_name_match.group(3))
+    new_master_files_dict[new_version_name] = master_files_dict[tmp_version_name]
 
+master_files_dict = new_master_files_dict
 dir_basename = os.path.basename(dirpath)
 
 csv_filepath = os.path.join(dirpath, '%s.csv'%dir_basename)
