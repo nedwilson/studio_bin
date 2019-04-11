@@ -148,9 +148,10 @@ def check_file_naming(filepath):
                 print('Info: %s will be renamed to %s.'%(filename, filename_destination))
                 os.rename(os.path.join(filedir, filename), os.path.join(filedir, filename_destination))
 
-    # account for frame numbers in version names
-    if len(filename_array) > 2:
-        filebase_new = "%s.%s"%(filebase_new, filename_array[1])
+    # account for frame numbers in version names of STILLS only
+    if fileext in ['jpg', 'png']:
+        if len(filename_array) > 2:
+            filebase_new = "%s.%s"%(filebase_new, filename_array[1])
     master_files_list.append(filebase_new)
     try:
         master_files_ext_dict[filebase_new].append(fileext)
