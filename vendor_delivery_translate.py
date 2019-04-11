@@ -5,6 +5,7 @@ import csv
 import sys
 import re
 from openpyxl import load_workbook
+import shutil
 # import PyQt5
 # from PyQt5 import QtWidgets
 
@@ -34,6 +35,8 @@ if not os.path.exists(dirpath):
 if not os.path.isdir(dirpath):
     print('Usage: vendor_delivery_translate.py /path/to/delivery/folder')
     exit()
+
+extra_files_dir = os.path.join(dirpath, 'extra_files')
 
 shot_regexp_txt = r'([0-9]{3}_[A-Z]{3}_[0-9]{4})_'
 sequence_regexp_txt = r'([A-Z]{3})_'
@@ -103,8 +106,10 @@ def check_file_naming(filepath):
         extract_csv(filepath)
         return
     else:
-        if fileext not in ['exr', 'dpx', 'mov', 'cube']:
-            return
+        if fileext not in ['exr', 'dpx', 'mov']:
+            # move these files to the extra_files dir
+            shutil.move(filepath, extra_files_dir)
+
     filebase_new = filebase
     for filename_extra_regexp in filename_extras_regexp_list:
         filename_extra_match = filename_extra_regexp.search(filebase)
@@ -117,6 +122,13 @@ def check_file_naming(filepath):
             os.rename(os.path.join(filedir, filename), os.path.join(filedir, filename_destination))
 
     master_files_list.append(filebase_new)
+
+# make a "extra_files" folder if one does not exist
+if not os.path.exists(extra_files_dir):
+    os.makedirs(extra_files_dir)
+else:
+    if not os.path.isdir(extra_files_dir):
+        raise RuntimeError("Path %s is not a directory!"%extra_files_dir)
 
 # make sure the directories are named correctly
 directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(matte)']
