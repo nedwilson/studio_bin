@@ -43,6 +43,7 @@ sequence_regexp_txt = r'([A-Z]{3})_'
 imgseq_regexp_txt = r'\.([0-9]+)\.'
 version_name_regexp_text = r'([0-9]{3}_[A-Z]{3}_[0-9]{4}_[A-Za-z0-9\-_]+_v[0-9]+)'
 version_name_wframe_regexp_text = r'([0-9]{3}_[A-Z]{3}_[0-9]{4})_([A-Za-z0-9\-_]+)_(v[0-9]+)\.([0-9]+)'
+version_name_hack_regexp_text = r'(frame([0-9]+)_)'
 version_regexp_text = r'_v([0-9]+)'
 
 shot_regexp = re.compile(shot_regexp_txt)
@@ -51,6 +52,7 @@ imgseq_regexp = re.compile(imgseq_regexp_txt)
 version_name_regexp = re.compile(version_name_regexp_text)
 version_regexp = re.compile(version_regexp_text)
 version_name_wframe_regexp = re.compile(version_name_wframe_regexp_text)
+version_name_hack_regexp = re.compile(version_name_hack_regexp_text)
 
 filename_extras_regexp_text_list = [r'(.*)_vfx', r'(.*)_avid', r'(.*)_prores', r'(.*)_pr422', r'(.*)_matte']
 filename_extras_regexp_list = [re.compile(pattern) for pattern in filename_extras_regexp_text_list]
@@ -250,7 +252,11 @@ for file in uniq_master_files_list:
                 print('Warning: Submission form does not have Version Name column either. Skipping.')
                 continue
 
-        if tmp_subform_version_code.find(file) != -1:
+        frame_hack_removal = version_name_hack_regexp.sub('', file)
+        new_file = file
+        if frame_hack_removal != file:
+            new_file = frame_hack_removal
+        if tmp_subform_version_code.find(new_file) != -1:
             b_subform_match = True
             print('Info: Found record for %s in submission form.'%file)
             try:
