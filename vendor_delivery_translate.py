@@ -256,7 +256,7 @@ for file in uniq_master_files_list:
         new_file = file
         if frame_hack_removal != file:
             new_file = frame_hack_removal
-        if tmp_subform_version_code.find(new_file) != -1:
+        if tmp_subform_version_code.lower().find(new_file.lower()) != -1:
             b_subform_match = True
             print('Info: Found record for %s in submission form.'%file)
             try:
@@ -266,6 +266,7 @@ for file in uniq_master_files_list:
                 master_files_dict[file]['count'] = subform_row['Duration']
             except KeyError:
                 print('Warning: This submission form does not have columns for one or more of the following: Submission Notes, Comp Start Frame, Comp End Frame, or Duration.')
+            break
 
     if not b_subform_match:
         master_files_dict[file]['desc'] = 'Shotgun Toolkit Create Delivery'
