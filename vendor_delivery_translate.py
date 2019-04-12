@@ -170,7 +170,7 @@ else:
         raise RuntimeError("Path %s is not a directory!"%extra_files_dir)
 
 # make sure the directories are named correctly
-directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(matte)', r'(jpg)']
+directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(matte)', r'(jpg)', r'(nuke)', r'(maya)']
 directory_regexp_list = [re.compile(pattern) for pattern in directory_regexp_text_list]
 
 directory_list = os.listdir(dirpath)
