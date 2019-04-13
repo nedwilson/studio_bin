@@ -54,7 +54,7 @@ version_regexp = re.compile(version_regexp_text)
 version_name_wframe_regexp = re.compile(version_name_wframe_regexp_text)
 version_name_hack_regexp = re.compile(version_name_hack_regexp_text)
 
-filename_extras_regexp_text_list = [r'(.*)_vfx', r'(.*)_avid', r'(.*)_prores', r'(.*)_pr422', r'(.*)_matte']
+filename_extras_regexp_text_list = [r'(.*)_vfx', r'(.*)_avid', r'(.*)_prores', r'(.*)_pr422']
 filename_extras_regexp_list = [re.compile(pattern) for pattern in filename_extras_regexp_text_list]
 master_files_list = []
 master_files_ext_dict = {}
@@ -97,6 +97,19 @@ def extract_csv(filepath):
 
 
 def check_file_naming(filepath):
+    # deal with tiff/tif
+    (file_noext, file_dotext) = os.path.splitext(filepath)
+    if file_dotext == '.tiff':
+        new_filename_withext = '%s.tif'%file_noext
+        print('Info: %s will be renamed to %s.' % (filepath, new_filename_withext))
+        os.rename(filepath, new_filename_withext)
+        filepath = new_filename_withext
+    elif file_dotext == '.jpeg':
+        new_filename_withext = '%s.jpg'%file_noext
+        print('Info: %s will be renamed to %s.' % (filepath, new_filename_withext))
+        os.rename(filepath, new_filename_withext)
+        filepath = new_filename_withext
+
     filename = os.path.basename(filepath)
     b_renamed = False
     # remove extra os files
@@ -121,7 +134,7 @@ def check_file_naming(filepath):
         extract_csv(filepath)
         return
     else:
-        if fileext not in ['exr', 'dpx', 'mov', 'jpg', 'png']:
+        if fileext not in ['exr', 'dpx', 'mov', 'jpg', 'png', 'tiff', 'tif']:
             # move these files to the extra_files dir
             extra_destfile = os.path.join(extra_files_dir, filename)
             if os.path.exists(extra_destfile):
@@ -170,7 +183,7 @@ else:
         raise RuntimeError("Path %s is not a directory!"%extra_files_dir)
 
 # make sure the directories are named correctly
-directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(matte)', r'(jpg)', r'(nuke)', r'(maya)']
+directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(matte)', r'(jpg)', r'(nuke)', r'(maya)', r'(tif)']
 directory_regexp_list = [re.compile(pattern) for pattern in directory_regexp_text_list]
 
 directory_list = os.listdir(dirpath)
