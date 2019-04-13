@@ -119,6 +119,9 @@ def check_file_naming(filepath):
     if filename == 'Thumbs.db':
         os.unlink(filepath)
         return
+    if filename.find('_export') != -1:
+        os.unlink(filepath)
+        return
     filedir = os.path.dirname(filepath)
     if filedir.find('support_files') != -1:
         return
