@@ -51,7 +51,7 @@ config = ConfigParser.ConfigParser()
 
 try:
     config.read(g_ih_show_cfg_path)
-    g_plate_transcode_url = config.get('scan_ingest', 'lut_transcode_url')
+    g_plate_transcode_url = config.get('scan_ingest', 'plate_transcode_url')
     g_imgseq_regexp = re.compile(config.get(g_ih_show_code, 'imgseq_regexp'))
 except:
     g_plate_transcode_url = 'http://glenrothes.qppe.tech/vfxbot/lut_convert'
