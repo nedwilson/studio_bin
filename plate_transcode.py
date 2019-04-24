@@ -76,7 +76,7 @@ for exr_file in s_exr_file_list:
         sys.stderr.write('Usage: plate_transcode.py /path/to/exr/folder\n')
         exit(-6)
 
-final_img_seq = os.path.join(platepath, '%s.%%04d.exr'%imgseq_base)
+final_img_seq = os.path.join(platepath, '%s.%%04d.%s'%(imgseq_base['base'], imgseq_base['ext']))
 json_dict = {'filepath': final_img_seq,
              'overwrite': 'True'}
 
