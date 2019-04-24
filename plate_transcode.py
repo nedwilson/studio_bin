@@ -71,7 +71,7 @@ else:
 
 s_exr_file_list = sorted(exr_file_list)
 for exr_file in s_exr_file_list:
-    if os.path.basename(exr_file).find('%s.'%imgseq_base) == -1:
+    if os.path.basename(exr_file).find('%s.'%imgseq_base['base']) == -1:
         sys.stderr.write('Error: Please provide a folder containing only one EXR image sequence\n')
         sys.stderr.write('Usage: plate_transcode.py /path/to/exr/folder\n')
         exit(-6)
