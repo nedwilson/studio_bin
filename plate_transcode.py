@@ -89,6 +89,6 @@ if response.status_code != 200:
 else:
     destination_filepath = response.json()['destination_filepath']
     sys.stdout.write('Success!\n')
-    sys.stdout.write('Transcoded LUT path: %s\n' % destination_filepath)
+    sys.stdout.write('Transcoded plate path: %s\n' % destination_filepath)
     exit()
 
