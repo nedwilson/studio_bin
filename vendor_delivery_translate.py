@@ -137,7 +137,7 @@ def check_file_naming(filepath):
         extract_csv(filepath)
         return
     else:
-        if fileext not in ['exr', 'dpx', 'mov', 'jpg', 'png', 'tiff', 'tif']:
+        if fileext not in ['exr', 'dpx', 'mov', 'jpg', 'png', 'tiff', 'tif', 'ma', 'mb']:
             # move these files to the extra_files dir
             extra_destfile = os.path.join(extra_files_dir, filename)
             if os.path.exists(extra_destfile):
