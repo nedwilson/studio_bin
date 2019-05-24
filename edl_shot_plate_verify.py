@@ -30,7 +30,7 @@ from email import encoders
 
 from email.mime.image import MIMEImage
 from email.mime.audio import MIMEAudio
-
+from email import encoders
 
 B_EXR_LIBRARY_EXISTS = False
 if os.path.exists('/usr/local/lib/python2.7/site-packages/OpenEXR.so'):
@@ -332,29 +332,13 @@ logging.info("Email Message: %s" % g_email_message)
 message.attach(MIMEText(g_email_message))
 
 logging.info("Creating message with attachment: file: %s" % filepath)
-content_type, encoding = mimetypes.guess_type(filepath)
-
-if content_type is None or encoding is not None:
-    content_type = 'application/octet-stream'
+content_type = 'application/vnd.ms-excel'
 main_type, sub_type = content_type.split('/', 1)
-msg = None
-if main_type == 'text':
-    fp = open(filepath, 'rb')
-    msg = MIMEText(fp.read(), _subtype=sub_type)
-    fp.close()
-elif main_type == 'image':
-    fp = open(filepath, 'rb')
-    msg = MIMEImage(fp.read(), _subtype=sub_type)
-    fp.close()
-elif main_type == 'audio':
-    fp = open(filepath, 'rb')
-    msg = MIMEAudio(fp.read(), _subtype=sub_type)
-    fp.close()
-else:
-    fp = open(filepath, 'rb')
-    msg = MIMEBase(main_type, sub_type)
-    msg.set_payload(fp.read())
-    fp.close()
+fp = open(filepath, 'rb')
+msg = MIMEBase(main_type, sub_type)
+msg.set_payload(fp.read())
+encoders.encode_base64(msg)
+fp.close()
 
 msg.add_header('Content-Disposition', 'attachment', filename=filename)
 message.attach(msg)
@@ -381,5 +365,4 @@ logging.info('SMTP response: %s'%str(smtp_response))
 s.quit()
 
 logging.info('Done.')
-
 
