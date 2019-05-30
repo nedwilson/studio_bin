@@ -37,6 +37,7 @@ if not os.path.isdir(dirpath):
     exit()
 
 extra_files_dir = os.path.join(dirpath, 'support_files')
+lut_files_dir = os.path.join(dirpath, 'luts')
 
 shot_regexp_txt = r'([0-9]{3}_[A-Z]{3}_[0-9]{4})_'
 sequence_regexp_txt = r'([A-Z]{3})_'
@@ -137,7 +138,7 @@ def check_file_naming(filepath):
         extract_csv(filepath)
         return
     else:
-        if fileext not in ['exr', 'dpx', 'mov', 'jpg', 'png', 'tiff', 'tif', 'ma', 'mb']:
+        if fileext not in ['exr', 'dpx', 'mov', 'jpg', 'png', 'tiff', 'tif', 'ma', 'mb', 'cube', 'csp']:
             # move these files to the extra_files dir
             extra_destfile = os.path.join(extra_files_dir, filename)
             if os.path.exists(extra_destfile):
@@ -153,6 +154,14 @@ def check_file_naming(filepath):
                     print('Info: %s will be renamed to %s.' % (filename, filename_destination))
                     os.rename(os.path.join(filedir, filename), os.path.join(filedir, filename_destination))
                     b_renamed = True
+            elif fileext in ['cube', 'csp']:
+                lut_destfile = os.path.join(lut_files_dir, filename)
+                if not lut_destfile == filepath:
+                    if os.path.exists(lut_destfile):
+                        os.unlink(lut_destfile)
+                    shutil.move(filepath, lut_files_dir)
+                else:
+                    print('Info: LUT file is already in the luts directory.')
 
     filebase_new = filebase
     for filename_extra_regexp in filename_extras_regexp_list:
@@ -185,8 +194,15 @@ else:
     if not os.path.isdir(extra_files_dir):
         raise RuntimeError("Path %s is not a directory!"%extra_files_dir)
 
+# make a "lut_files" folder if one does not exist
+if not os.path.exists(lut_files_dir):
+    os.makedirs(lut_files_dir)
+else:
+    if not os.path.isdir(lut_files_dir):
+        raise RuntimeError("Path %s is not a directory!"%lut_files_dir)
+
 # make sure the directories are named correctly
-directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(matte)', r'(jpg)', r'(nuke)', r'(maya)', r'(tif)']
+directory_regexp_text_list = [r'(avid)', r'(vfx)', r'(exr)', r'(support_files)', r'(luts)', r'(matte)', r'(jpg)', r'(nuke)', r'(maya)', r'(tif)']
 directory_regexp_list = [re.compile(pattern) for pattern in directory_regexp_text_list]
 
 directory_list = os.listdir(dirpath)
