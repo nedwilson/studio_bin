@@ -55,7 +55,7 @@ version_regexp = re.compile(version_regexp_text)
 version_name_wframe_regexp = re.compile(version_name_wframe_regexp_text)
 version_name_hack_regexp = re.compile(version_name_hack_regexp_text)
 
-filename_extras_regexp_text_list = [r'(.*)_prores', r'(.*)_pr422']
+filename_extras_regexp_text_list = [r'(.*)_vfx', r'(.*)_avid', r'(.*)_prores', r'(.*)_pr422']
 filename_extras_regexp_list = [re.compile(pattern) for pattern in filename_extras_regexp_text_list]
 master_files_list = []
 master_files_ext_dict = {}
