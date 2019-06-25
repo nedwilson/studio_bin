@@ -1841,9 +1841,13 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                 miliseconds = 1000.0
                 frame_rate_re = '^([0-9.]+) '
                 frame_rate = 23.976
-                frame_rate_match = re.search(frame_rate_re, mediainfo['Frame rate'])
-                if frame_rate_match:
-                    frame_rate = float(frame_rate_match.group(1))
+                frame_rate_match = None
+                try:
+                    frame_rate_match = re.search(frame_rate_re, mediainfo['Frame rate'])
+                    if frame_rate_match:
+                        frame_rate = float(frame_rate_match.group(1))
+                except KeyError:
+                    pass
                 duration_minutes = 0.0
                 duration_seconds = 0.0
                 duration_ms = 0.0
