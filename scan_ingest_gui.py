@@ -1840,7 +1840,7 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                 mediainfo = quicktime_mediainfo(tmp_io.full_name)
                 miliseconds = 1000.0
                 frame_rate_re = '^([0-9.]+) '
-                frame_rate = 23.976
+                frame_rate = 24.0
                 frame_rate_match = None
                 try:
                     frame_rate_match = re.search(frame_rate_re, mediainfo['Frame rate'])
@@ -1854,9 +1854,17 @@ for dirname, subdirlist, filelist in os.walk(g_path):
                 duration_min_re = '([0-9]+) min'
                 duration_sec_re = '([0-9]+) s'
                 duration_ms_re = '([0-9]+) ms'
-                duration_min_match = re.search(duration_min_re, mediainfo['Duration'])
-                duration_sec_match = re.search(duration_sec_re, mediainfo['Duration'])
-                duration_ms_match = re.search(duration_ms_re, mediainfo['Duration'])
+                duration_min_match = None
+                duration_sec_match = None
+                duration_ms_match = None
+
+                try:
+                    duration_min_match = re.search(duration_min_re, mediainfo['Duration'])
+                    duration_sec_match = re.search(duration_sec_re, mediainfo['Duration'])
+                    duration_ms_match = re.search(duration_ms_re, mediainfo['Duration'])
+                except KeyError:
+                    log.error('Quicktime movie %s does not have a valid Duration metadata tag! Skipping.'%tmp_io.full_name)
+                    continue
 
                 if duration_sec_match:
                     duration_seconds = float(duration_sec_match.group(1))
