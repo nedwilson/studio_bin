@@ -246,7 +246,7 @@ for file in uniq_master_files_list:
         if version_number == 0:
             master_files_dict[file]['subreason'] = 'Scan Check'
         else:
-            master_files_dict[file]['subreason'] = 'WIP Comp'
+            master_files_dict[file]['subreason'] = 'Final Comp'
     for tmp_ext in tmp_file_dict['extensions']:
         if tmp_ext in ['png', 'jpg']:
             master_files_dict[file]['subreason'] = 'Concept'
