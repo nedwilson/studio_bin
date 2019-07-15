@@ -10,6 +10,7 @@ import os
 import subprocess
 import logging
 import glob
+import traceback
 
 # gmail/oauth
 
@@ -18,7 +19,7 @@ import oauth2client
 import base64
 import mimetypes
 
-from oauth2client import client, tools
+from oauth2client import client, tools, file
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from apiclient import errors, discovery
@@ -288,8 +289,10 @@ if __name__ == "__main__":
                 problem = sys.exc_info()
                 etype = problem[0].__name__
                 emsg = problem[1]
+                etb = traceback.format_exc(problem)
                 log.error("Caught exception of type %s!"%etype)
                 log.error("%s"%emsg)
+                log.error(etb)
     if not valid:
         print "ERROR: Please provide a valid path to a temporary config file as the first and only argument."
         
